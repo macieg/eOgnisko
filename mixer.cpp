@@ -1,20 +1,28 @@
-#ifndef MIXER
-#define MIXER
+#include <cstdio>
+#include <climits>
+#include <algorithm>
+#include "mixer.h"
 
-struct mixer_input {
-  void* data;       // Wskaźnik na dane w FIFO
-  size_t len;       // Liczba dostępnych bajtów
-  size_t consumed;  // Wartość ustawiana przez mikser, wskazująca, ile bajtów należy
-                    // usunąć z FIFO.
-} 
+#define MAGIC_NUMBER 176
 
-void mixer(
-  struct mixer_input* inputs, size_t n,  // tablica struktur mixer_input, po jednej strukturze na każdą
-                                         // kolejkę FIFO w stanie ACTIVE
-  void* output_buf,                      // bufor, w którym mikser powinien umieścić dane do wysłania
-  size_t* output_size,                   // początkowo rozmiar output_buf, następnie mikser umieszcza
-                                         // w tej zmiennej liczbę bajtów zapisanych w output_buf
-  unsigned long tx_interval_ms           // wartość zmiennej TX_INTERVAL
-);
+void mixer(struct mixer_input* inputs, size_t n, void* output_buf,
+        size_t* output_size, unsigned long tx_interval_ms
+        ) {
+    fprintf(stderr, "MIXER\n");
+    unsigned long output_buffer_size = tx_interval_ms * MAGIC_NUMBER / 2;
 
-#endif
+    for (size_t i = 0; i < output_buffer_size; i++) {
+        int sum = 0;
+        for (size_t j = 0; j < n; j++) {
+            if (inputs[i].len >= j)
+            {
+                if (sum >= 0)
+                    sum = std::min(sum + ((short int*) inputs[i].data)[j], (int) SHRT_MAX);
+                else
+                    sum = std::max(sum + ((short int*) inputs[i].data)[j], (int) SHRT_MIN);
+            }
+        }
+    }
+}
+
+
