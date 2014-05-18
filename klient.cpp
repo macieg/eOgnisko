@@ -15,7 +15,7 @@ namespace asio = boost::asio;
 int retransmit_limit = 10;
 
 //Nr portu serwera.
-int port;
+std::string port;
 
 //Nazwa serwera.
 std::string server;
@@ -26,11 +26,12 @@ struct sigaction sigint_action;
 //Informacja o tym, czy złapano sygnał SIG_INT.
 bool is_stopped;
 
+boost::asio::io_service io_service;
 //Metoda obsługująca przechwycenie sygnału SIG_INT.
-
 void sigint_handler(int i) {
     is_stopped = true;
     fprintf(stderr, "Przechwycono SIG_INT %d\n", i);
+    io_service.stop();
 }
 
 //Metoda służąca do ustawienia startowych opcji w programie.
@@ -52,7 +53,7 @@ void setup(int argc, char **argv) {
     description.add_options()
             ("help,h", "Display this help message")
             ("server,s", po::value<std::string>(), "Server name")
-            ("port,p", po::value<int>(), "Port number")
+            ("port,p", po::value<std::string>(), "Port number")
             ("retransmit,X", po::value<int>(), "Retransmit limit");
 
     po::variables_map vm;
@@ -70,8 +71,8 @@ void setup(int argc, char **argv) {
     }
 
     if (vm.count("port")) {
-        port = vm["port"].as<int>();
-        fprintf(stderr, "Port number - %d\n", port);
+        port = vm["port"].as<std::string>();
+        std::cerr << "Port number - " << port << std::endl;
     }
 
     if (vm.count("retransmit")) {
@@ -80,7 +81,6 @@ void setup(int argc, char **argv) {
     }
 }
 
-boost::asio::io_service io_service;
 boost::asio::ip::tcp::resolver resolver(io_service);
 boost::asio::ip::tcp::socket sock(io_service);
 boost::array<char, 4096> buffer;

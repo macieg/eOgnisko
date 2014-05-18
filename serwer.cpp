@@ -24,11 +24,13 @@ struct sigaction sigint_action;
 //Informacja o tym, czy złapano sygnał SIG_INT.
 bool is_stopped;
 
-//Metoda obsługująca przechwycenie sygnału SIG_INT.
+asio::io_service io_service;
 
+//Metoda obsługująca przechwycenie sygnału SIG_INT.
 void sigint_handler(int i) {
     is_stopped = true;
     fprintf(stderr, "Przechwycono SIG_INT %d\n", i);
+    io_service.stop();
 }
 
 //Metoda służąca do ustawienia startowych opcji w programie.
@@ -96,7 +98,6 @@ void setup(int argc, char** argv) {
 }
 
 /////////
-asio::io_service io_service;
 asio::ip::tcp::endpoint endpoint(asio::ip::tcp::v4(), port);
 asio::ip::tcp::acceptor acceptor(io_service, endpoint);
 asio::ip::tcp::socket sock(io_service);
