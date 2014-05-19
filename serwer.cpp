@@ -62,8 +62,11 @@ void read_handler(const boost::system::error_code &ec, std::size_t bytes_transfe
     }
 }
 
-//Obsługa próby połączenia.
-
+/**
+ * Funkcja wywoływana, io_service otrzyma do obsługi połączenie.
+ * 
+ * @param ec error code
+ */
 void accept_handler(const boost::system::error_code &ec)
 {
     static int i = 1;
@@ -111,57 +114,19 @@ void program_options_setup(int argc, char** argv)
 
     description.add_options()
             ("help,h", "Distplay this help message")
-            ("port,p", po::value<int>(), "Port number")
-            ("fifosize,F", po::value<int>(), "Fifo size")
-            ("fifolowwatermark,L", po::value<int>(), "Fifo low watermark")
-            ("fifohighwatermark,H", po::value<int>(), "Fifo high watermark")
-            ("buflen,X", po::value<int>(), "Buffer length")
-            ("txinterval,i", po::value<int>(), "Tx interval");
+            ("port,p", po::value<int>(&port), "Port number")
+            ("fifosize,F", po::value<int>(&fifo_size), "Fifo size")
+            ("fifolowwatermark,L", po::value<int>(&fifo_low_watermark), "Fifo low watermark")
+            ("fifohighwatermark,H", po::value<int>(&fifo_high_watermark), "Fifo high watermark")
+            ("buflen,X", po::value<int>(&buf_len), "Buffer length")
+            ("txinterval,i", po::value<int>(&tx_interval), "Tx interval");
 
     po::variables_map vm;
     po::store(po::command_line_parser(argc, argv).options(description).run(), vm);
     po::notify(vm);
 
     if (vm.count("help"))
-    {
         std::cerr << description;
-    }
-
-    if (vm.count("port"))
-    {
-        port = vm["port"].as<int>();
-        fprintf(stderr, "Port number - %d\n", port);
-    }
-
-    if (vm.count("fifosize"))
-    {
-        fifo_size = vm["fifosize"].as<int>();
-        fprintf(stderr, "Fifo size - %d\n", fifo_size);
-    }
-
-    if (vm.count("fifolowwatermark"))
-    {
-        fifo_low_watermark = vm["fifohighwatermark"].as<int>();
-        fprintf(stderr, "Fifo low watermark - %d\n", fifo_low_watermark);
-    }
-
-    if (vm.count("fifohighwatermark"))
-    {
-        fifo_high_watermark = vm["fifohighwatermark"].as<int>();
-        fprintf(stderr, "Fifo high watermark - %d\n", fifo_high_watermark);
-    }
-
-    if (vm.count("buflen"))
-    {
-        buf_len = vm["buflen"].as<int>();
-        fprintf(stderr, "Buffer length - %d\n", buf_len);
-    }
-
-    if (vm.count("txinterval"))
-    {
-        tx_interval = vm["txinterval"].as<int>();
-        fprintf(stderr, "Tx interval - %d\n", tx_interval);
-    }
 }
 
 //Ustawienia sieciowe.
@@ -169,6 +134,8 @@ void program_options_setup(int argc, char** argv)
 void network_setup()
 {
     //    asio::io_service::work work(io_service);
+    //Trick, zapobiega blokowaniu się gniazda.
+    acceptor.set_option(asio::socket_base::reuse_address(true));
     acceptor.listen();
     acceptor.async_accept(sock, accept_handler);
     io_service.run();
@@ -178,8 +145,9 @@ void network_setup()
 
 void setup(int argc, char** argv)
 {
-    signals_setup();
+    std::ios_base::sync_with_stdio(false); //Przyspieszenie cerr.
     program_options_setup(argc, argv);
+    signals_setup();
     network_setup();
 }
 
