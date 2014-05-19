@@ -1,4 +1,4 @@
-#include <cstdio>
+#include <iostream>
 #include <cstdlib>
 #include <signal.h>
 #include <unistd.h>
@@ -26,17 +26,27 @@ struct sigaction sigint_action;
 //Informacja o tym, czy złapano sygnał SIG_INT.
 bool is_stopped;
 
-boost::asio::io_service io_service;
+asio::io_service io_service;
+asio::io_service::work work(io_service);
+asio::ip::tcp::resolver resolver(io_service);
+asio::ip::tcp::socket sock(io_service);
+boost::array<char, 4096> buffer;
+
 //Metoda obsługująca przechwycenie sygnału SIG_INT.
-void sigint_handler(int i) {
+
+void sigint_handler(int i)
+{
     is_stopped = true;
     fprintf(stderr, "Przechwycono SIG_INT %d\n", i);
     io_service.stop();
 }
 
 //Metoda służąca do ustawienia startowych opcji w programie.
+void setup(int argc, char **argv)
+{
+    //Przyspieszenie iostream.
+    std::ios_base::sync_with_stdio(false);
 
-void setup(int argc, char **argv) {
     //Ustawienia dotyczące wyłapywania sygnałów.
     is_stopped = false;
 
@@ -60,53 +70,85 @@ void setup(int argc, char **argv) {
     po::store(po::command_line_parser(argc, argv).options(description).run(), vm);
     po::notify(vm);
 
-    if (vm.count("help")) //TODO zmienic na fprintf
+    if (vm.count("help"))
     {
         std::cerr << description;
     }
 
-    if (vm.count("server")) {
+    if (vm.count("server"))
+    {
         server = vm["server"].as<std::string>();
-        fprintf(stderr, "Server name - %s\n", server.c_str());
+        std::cerr << "Server name - " << server << std::endl;
     }
 
-    if (vm.count("port")) {
+    if (vm.count("port"))
+    {
         port = vm["port"].as<std::string>();
         std::cerr << "Port number - " << port << std::endl;
     }
 
-    if (vm.count("retransmit")) {
+    if (vm.count("retransmit"))
+    {
         retransmit_limit = vm["retransmit"].as<int>();
         fprintf(stderr, "Retransmit limit - %d\n", retransmit_limit);
     }
 }
 
-boost::asio::ip::tcp::resolver resolver(io_service);
-boost::asio::ip::tcp::socket sock(io_service);
-boost::array<char, 4096> buffer;
-
-
-void connect_handler(const boost::system::error_code &ec) {
-    if (!ec) {
-        boost::asio::write(sock, boost::asio::buffer("sdfsafsafsa"));
+void read_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
+{
+    std::cerr << "READ HANDLER " << bytes_transferred << "\n";
+    if (!ec)
+    {
+        std::cerr << "READ SUCCESS\n";
+        std::cerr << "ODEBRALEM " << std::string(buffer.data(), bytes_transferred);
     }
 }
 
-void resolve_handler(const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it) {
-    if (!ec) {
+void write_handler(const boost::system::error_code& ec, std::size_t bytes_transferred)
+{
+    std::cerr << "WRITE HANDLER " << bytes_transferred << "\n";
+    if (!ec)
+    {
+        std::cerr << "WRITE SUCCESS\n";
+        sock.async_read_some(asio::buffer(buffer), read_handler);
+    }
+    else
+    {
+        std::cerr << "WRITE FAIL\n";
+    }
+}
+
+void connect_handler(const boost::system::error_code &ec)
+{
+    std::cerr << "CONNECT HANDLER \n";
+    if (!ec)
+    {
+        std::cerr << "CONNECT SUCCESS \n";
+        //        boost::asio::write(sock, boost::asio::buffer("sdfsafsafsa"));
+        //        sock.write_some(boost::asio::buffer("aaaa"));
+        sock.async_write_some(asio::buffer("prosze o polaczenie"), write_handler);
+    }
+    else
+    {
+        std::cerr << "CONNECT FAIL\n";
+        //        sock.async_connect(connect_handler);
+        //TODO probuj do skutku
+    }
+}
+
+void resolve_handler(const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it)
+{
+    if (!ec)
+    {
         sock.async_connect(*it, connect_handler);
     }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     setup(argc, argv);
 
-    boost::asio::ip::tcp::resolver::query query(server, "3856");
+    asio::ip::tcp::resolver::query query(server, port);
     resolver.async_resolve(query, resolve_handler);
     io_service.run();
-    //while(!is_stopped)
-    //{
-    //	fprintf(stderr, "Klient sobie dziala\n");
-    //	sleep(1);
-    //}
 }
