@@ -8,7 +8,9 @@
 
 namespace po = boost::program_options;
 namespace asio = boost::asio;
-
+/**
+ * Klasa reprezentująca klienta.
+ */
 class client
 {
 private:
@@ -28,8 +30,6 @@ private:
 
     void receive_handler(const boost::system::error_code &ec, std::size_t bytes_transferred);
     
-    void write_handler(const boost::system::error_code& ec, std::size_t bytes_transferred);
-
     void connect_handler(const boost::system::error_code &ec);
 
     void resolve_handler(const boost::system::error_code &ec, asio::ip::tcp::resolver::iterator it);

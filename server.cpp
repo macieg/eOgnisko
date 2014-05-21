@@ -1,17 +1,12 @@
+#include <vector>
+#include <boost/shared_ptr.hpp>
 #include <boost/program_options.hpp>
+#include <boost/lexical_cast.hpp>
 #include "err.h"
 #include "mixer.h"
-#include "connection.h"
-#include "utils.h"
 #include "server.h"
 
 namespace po = boost::program_options;
-
-void server::sigint_handler(int i)
-{
-    fprintf(stderr, "Przechwycono SIG_INT %d\n", i);
-    io_service.stop();
-}
 
 void server::write_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
 {
@@ -31,31 +26,34 @@ void server::read_handler(const boost::system::error_code &ec, std::size_t bytes
 
 void server::accept_handler(const boost::system::error_code &ec)
 {
-
     if (!ec)
     {
-
-        connection conn(id_sequence++);
-
-        asio::async_write(sock,
-                asio::buffer(create_accept_response(conn.get_client_id())),
-                boost::bind(&server::write_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
+        boost::shared_ptr<connection> conn(new connection(id_sequence, std::move(sock)));
+        
+        connections_map.emplace(conn.get()->get_socket().remote_endpoint(), conn);
+        
+        asio::async_write(conn->get_socket(),
+                asio::buffer(create_accept_response(id_sequence)),
+                boost::bind(&server::write_handler, this, asio::placeholders::error,
+                asio::placeholders::bytes_transferred)
                 );
-        //        sock.async_read_some(asio::buffer(buffer), read_handler);
-        std::cerr << "NOWY KLIENT " << sock.remote_endpoint() << "\n";
-
+        
+        id_sequence++;
+        std::cerr << "NOWY KLIENT " << conn->get_socket().remote_endpoint() << "\n";
     }
     else
     {
-        //        std::cerr << "ACCEPT HANDLER FAILURE " << ec << "\n";
+//        sock = asio::ip::tcp::socket(io_service);
+        std::cerr << "ACCEPT HANDLER FAILURE " << ec << "\n";
     }
+
 
     acceptor.async_accept(
             sock,
             boost::bind(&server::accept_handler, this, asio::placeholders::error)
             );
 
-    sock = asio::ip::tcp::socket(io_service);
+
 }
 
 void server::sigint_handler(const boost::system::error_code& error, int signal_number)
@@ -74,6 +72,14 @@ void server::signals_setup()
             boost::bind(&server::sigint_handler, this,
             asio::placeholders::error, asio::placeholders::signal_number)
             );
+}
+
+std::string server::create_accept_response(int client_id)
+{
+    std::string response("CLIENT ");
+    response.append(boost::lexical_cast<std::string>(client_id));
+    response.append("\n");
+    return std::move(response);
 }
 
 void server::program_options_setup(int argc, char** argv)

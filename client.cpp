@@ -5,34 +5,17 @@ boost::asio::streambuf s;
 
 void client::receive_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
 {
-//    std::cerr << "READ HANDLER " << bytes_transferred << "\n";
+    //    std::cerr << "READ HANDLER " << bytes_transferred << "\n";
     if (!ec)
     {
         std::cerr << "READ SUCCESS\n";
         std::cerr << "ODEBRALEM: " << std::string(buffer.data(), bytes_transferred);
 
     }
-//    asio::async_read_until(sock,
-//            s, '\n',
-//            boost::bind(&client::receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
-//            );
-}
-
-void client::write_handler(const boost::system::error_code& ec, std::size_t bytes_transferred)
-{
-    std::cerr << "WRITE HANDLER " << bytes_transferred << "\n";
-    if (!ec)
-    {
-        std::cerr << "WRITE SUCCESS\n";
-        sock.async_receive(
-                asio::buffer(buffer),
-                boost::bind(&client::receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
-                );
-    }
-    else
-    {
-        std::cerr << "WRITE FAIL\n";
-    }
+    //    asio::async_read_until(sock,
+    //            s, '\n',
+    //            boost::bind(&client::receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
+    //            );
 }
 
 void client::connect_handler(const boost::system::error_code &ec)
@@ -41,9 +24,9 @@ void client::connect_handler(const boost::system::error_code &ec)
     if (!ec)
     {
         std::cerr << "CONNECT SUCCESS \n";
-        sock.async_send(
-                asio::buffer("prosze o polaczenie"),
-                boost::bind(&client::write_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
+        asio::async_read_until(sock,
+                s, '\n',
+                boost::bind(&client::receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
                 );
     }
     else
