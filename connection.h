@@ -29,6 +29,7 @@ public:
      * @return referencja na socket
      */
     boost::asio::ip::tcp::socket& get_socket();
+
 };
 
 #endif	/* CONNECTION_H */
