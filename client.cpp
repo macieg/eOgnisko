@@ -1,26 +1,25 @@
 #include <boost/bind.hpp>
 #include "client.h"
 
-boost::asio::streambuf s;
-
 void client::receive_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
 {
     //    std::cerr << "READ HANDLER " << bytes_transferred << "\n";
     if (!ec)
     {
-        std::cerr << "READ SUCCESS\n";
-        std::cerr << "ODEBRALEM: " << std::string(buffer.data(), bytes_transferred);
-
+        //std::cerr << "READ SUCCESS " << "\n";
+        std::ostringstream ss;
+        ss << &s;
+        std::cerr << ss.str();
     }
-    //    asio::async_read_until(sock,
-    //            s, '\n',
-    //            boost::bind(&client::receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
-    //            );
+    
+    asio::async_read_until(sock,
+            s, '\n',
+            boost::bind(&client::receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
+            );
 }
 
 void client::connect_handler(const boost::system::error_code &ec)
 {
-    std::cerr << "CONNECT HANDLER \n";
     if (!ec)
     {
         std::cerr << "CONNECT SUCCESS \n";
@@ -32,8 +31,8 @@ void client::connect_handler(const boost::system::error_code &ec)
     else
     {
         std::cerr << "CONNECT FAIL\n";
-        //        sock.async_connect(connect_handler);
-        //TODO probuj do skutku
+//        connect_timer.expires_from_now(boost::posix_time::seconds(TIMER_INTERVAL));
+        connect_timer.wait();
     }
 }
 
@@ -103,6 +102,10 @@ void client::setup_networking()
             boost::bind(&client::resolve_handler, this, asio::placeholders::error, asio::placeholders::iterator)
             );
     io_service.run();
+}
+
+client::client() : resolver(io_service), sock(io_service), connect_timer(io_service, boost::posix_time::seconds(TIMER_INTERVAL))
+{
 }
 
 void client::setup(int argc, char **argv)

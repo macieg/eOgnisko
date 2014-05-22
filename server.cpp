@@ -114,8 +114,7 @@ void server::timer_handler(const boost::system::error_code& error)
         {
             try
             {
-                (*pair).second->get_socket().remote_endpoint();
-                
+                (*pair).second->get_socket().remote_endpoint();               
                 message << create_raport_part((*pair).second);
                 
                 std::cerr << (*pair).second->get_socket().remote_endpoint() << "\n";

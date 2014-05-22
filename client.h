@@ -22,11 +22,19 @@ private:
 
     //Nazwa serwera.
     std::string server;
+    
+    int TIMER_INTERVAL = 0.5; //czas dla timera (w sekundach) do ponownego łączenia
+    
+    /////////////////////////////////////////////////////////////////
     asio::io_service io_service;
-    //asio::io_service::work work(io_service);
     asio::ip::tcp::resolver resolver;
     asio::ip::tcp::socket sock;
     boost::array<char, 4096> buffer;
+    boost::asio::streambuf s;
+    ///////////////////////////////////////////////////////////////
+    
+    
+    asio::deadline_timer connect_timer; //
 
     void receive_handler(const boost::system::error_code &ec, std::size_t bytes_transferred);
     
@@ -52,9 +60,7 @@ private:
 
 public:
 
-    client() : resolver(io_service), sock(io_service)
-    {
-    }
+    client();
 
     /**
      * Metoda służąca do wykonania ustawień.
