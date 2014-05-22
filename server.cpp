@@ -1,13 +1,10 @@
 #include <vector>
+#include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/timer.hpp>
-#include "err.h"
 #include "mixer.h"
 #include "server.h"
-
-namespace po = boost::program_options;
 
 void server::accept_handler(const boost::system::error_code &ec)
 {
@@ -38,15 +35,6 @@ void server::accept_handler(const boost::system::error_code &ec)
             );
 }
 
-void server::sigint_handler(const boost::system::error_code& error, int signal_number)
-{
-    if (!error)
-    {
-        std::cerr << "Otrzymano sygnał " << signal_number << "konczenie pracy\n";
-        io_service.stop();
-    }
-}
-
 std::string server::create_accept_response(int client_id)
 {
     std::string response("CLIENT ");
@@ -72,36 +60,6 @@ std::string server::create_raport_part(boost::shared_ptr<connection> conn)
     return raport.str();
 }
 
-void server::signals_setup()
-{
-    asio::signal_set signals(io_service, SIGINT);
-    signals.async_wait(
-            boost::bind(&server::sigint_handler, this,
-            asio::placeholders::error, asio::placeholders::signal_number)
-            );
-}
-
-void server::program_options_setup(int argc, char** argv)
-{
-    po::options_description description("Server usage");
-
-    description.add_options()
-            ("help,h", "Distplay this help message")
-            ("port,p", po::value<int>(&port), "Port number")
-            ("fifosize,F", po::value<int>(&fifo_size), "Fifo size")
-            ("fifolowwatermark,L", po::value<int>(&fifo_low_watermark), "Fifo low watermark")
-            ("fifohighwatermark,H", po::value<int>(&fifo_high_watermark), "Fifo high watermark")
-            ("buflen,X", po::value<int>(&buf_len), "Buffer length")
-            ("txinterval,i", po::value<int>(&tx_interval), "Tx interval");
-
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(description).run(), vm);
-    po::notify(vm);
-
-    if (vm.count("help"))
-        std::cerr << description;
-}
-
 void server::timer_handler(const boost::system::error_code& error)
 {
     if (!error)
@@ -114,9 +72,9 @@ void server::timer_handler(const boost::system::error_code& error)
         {
             try
             {
-                (*pair).second->get_socket().remote_endpoint();               
+                (*pair).second->get_socket().remote_endpoint();
                 message << create_raport_part((*pair).second);
-                
+
                 std::cerr << (*pair).second->get_socket().remote_endpoint() << "\n";
             }
             catch (std::exception& e)
@@ -155,21 +113,28 @@ void server::network_setup()
     acceptor.async_accept(sock,
             boost::bind(&server::accept_handler, this, asio::placeholders::error)
             );
-    io_service.run();
 }
 
-server::server() : endpoint(asio::ip::tcp::v4(), port),
+server::server(asio::io_service& io_service, int port) : port(port), endpoint(asio::ip::tcp::v4(), port),
 acceptor(io_service, endpoint),
 sock(io_service),
 timer(io_service)
 {
 }
 
-void server::setup(int argc, char** argv)
+void server::setup(int fifo_size,
+        int fifo_low_watermark,
+        int fifo_high_watermark,
+        int buf_len,
+        int tx_interval)
 {
-    program_options_setup(argc, argv);
-    signals_setup();
     timer_setup();
     network_setup();
+    
+    this->fifo_size = fifo_size;
+    this->fifo_low_watermark = fifo_low_watermark;
+    this->fifo_high_watermark = fifo_high_watermark;
+    this->buf_len = buf_len;
+    this->tx_interval = tx_interval;
 }
 

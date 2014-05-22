@@ -1,7 +1,6 @@
 
 #ifndef SERVER_H
 #define	SERVER_H
-#include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <map>
@@ -14,16 +13,14 @@ private:
     /**
      * Stałe z treści zadania.
      */
-    int port = 3856;
-    int fifo_size = 10560;
-    int fifo_low_watermark = 0;
-    int fifo_high_watermark = fifo_size;
-    int buf_len = 10;
-    int tx_interval = 5;
-    int TIMER_INTERVAL = 1; //czas dla timera (w sekundach) do rozsyłania raportów
+    int port;
+    int fifo_size;
+    int fifo_low_watermark;
+    int fifo_high_watermark;
+    int buf_len;
+    int tx_interval;
 
     ///////////////////////////////////////////////////////////////////
-    asio::io_service io_service;
     asio::ip::tcp::endpoint endpoint;
     asio::ip::tcp::acceptor acceptor;
     asio::ip::tcp::socket sock;
@@ -32,10 +29,9 @@ private:
     asio::deadline_timer timer;
     ///////////////////////////////////////////////////////////////////
 
+    int id_sequence = 1; //Pomocnicza sekwencja do tworzenia id klientów.
 
-    //Pomocnicza sekwencja do tworzenia id klientów.
-    int id_sequence = 1;
-
+    int TIMER_INTERVAL; //czas dla timera (w sekundach) do rozsyłania raportów
     /**
      * Struktura danych przechowująca userów.
      * //TODO być może do zmiany
@@ -56,19 +52,6 @@ private:
      * @param timer obiekt timera
      */
     void timer_handler(const boost::system::error_code& error);
-
-    /**
-     * Metoda wywoływana w przypadku wychwycenia sygnału.
-     * 
-     * @param error error code
-     * @param signal_number kod sygnału
-     */
-    void sigint_handler(const boost::system::error_code& error, int signal_number);
-
-    /**
-     * Ustawienia dotyczące wyłapywania sygnałów.
-     */
-    void signals_setup();
 
     /**
      * Tworzy wiadomość jako odpowiedź dla klienta, któremu udało się połączyć
@@ -92,7 +75,7 @@ private:
 
     //Parsowanie argumentów programu.
 
-    void program_options_setup(int argc, char** argv);
+    void parse_command_line(int argc, char** argv);
 
     /**
      * Ustawia timer do wysyłania raportów.
@@ -106,11 +89,25 @@ private:
 
 public:
 
-    server();
+    /**
+     * Konstruktor przyjmujący referencje na io_service i nr portu,
+     * na którym będzie nasłuchiwał TCP i UDP.
+     * 
+     * @param io_service
+     * @param nr portu
+     */
+    server(asio::io_service&, int);
 
-    //Metoda służąca do ustawienia startowych opcji w programie.
-
-    void setup(int argc, char** argv);
+    /**
+     * Metoda służąca do ustawienia startowych opcji w programie.
+     * 
+     * @params parametry z treści
+     */
+    void setup(int fifo_size,
+            int fifo_low_watermark,
+            int fifo_high_watermark,
+            int buf_len,
+            int tx_interval);
 
 };
 

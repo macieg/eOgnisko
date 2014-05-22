@@ -2,56 +2,61 @@
 #ifndef CLIENT_H
 #define	CLIENT_H
 #include <string>
-#include <boost/program_options.hpp>
 #include <boost/asio.hpp> 
 #include <boost/array.hpp> 
 
-namespace po = boost::program_options;
 namespace asio = boost::asio;
+
 /**
  * Klasa reprezentująca klienta.
  */
-class client
-{
+class client {
 private:
-    //Odgórny ogranicznik na numer datagramu otrzymanego od serwera.
-    int retransmit_limit = 10;
-
-    //Nr portu serwera.
-    std::string port = "3856";
-
-    //Nazwa serwera.
+    /**
+     * Parametry z treści.
+     */
+    int retransmit_limit;
+    std::string port;
     std::string server;
-    
-    int TIMER_INTERVAL = 0.5; //czas dla timera (w sekundach) do ponownego łączenia
-    
+
+    int TIMER_INTERVAL = 500; //czas dla timera (w milisekundach) do ponownego łączenia
+
     /////////////////////////////////////////////////////////////////
-    asio::io_service io_service;
     asio::ip::tcp::resolver resolver;
     asio::ip::tcp::socket sock;
     boost::array<char, 4096> buffer;
-    boost::asio::streambuf s;
+    boost::asio::streambuf stream_buffer;
     ///////////////////////////////////////////////////////////////
-    
-    
-    asio::deadline_timer connect_timer; //
 
-    void receive_handler(const boost::system::error_code &ec, std::size_t bytes_transferred);
-    
-    void connect_handler(const boost::system::error_code &ec);
 
-    void resolve_handler(const boost::system::error_code &ec, asio::ip::tcp::resolver::iterator it);
-
-    //Metoda obsługująca przechwycenie sygnału SIG_INT.
-
-    void sigint_handler(const boost::system::error_code& error, int signal_number);
+    asio::deadline_timer connect_timer; //timer sprawdzający co jakiś czas stan połączenie tcp
 
     /**
-     * Ustawienia dotyczące wyłapywania sygnałów.
+     * Obsługa zdarzenia odbioru wiadomości TCP.
+     * 
+     * @param ec error code
+     * @param bytes_transferred liczba przesłanych bajtów
      */
-    void setup_signals();
+    void receive_handler(const boost::system::error_code &ec, std::size_t bytes_transferred);
 
-    bool program_options_setup(int argc, char **argv);
+    /**
+     * Obsługa zdarzenia łączenia z serwerem po TCP.
+     * 
+     * @param ec error code
+     */
+    void connect_handler(const boost::system::error_code &ec);
+
+    /**
+     * Metoda do wykrywania problemów z połączeniem TCP.
+     * 
+     * @param boost::system::error_code error code
+     */
+    void timer_handler(const boost::system::error_code&);
+
+    /**
+     * Ustawienia handlera.
+     */
+    void setup_timer();
 
     /**
      * Ustawienia sieci.
@@ -60,16 +65,16 @@ private:
 
 public:
 
-    client();
+    client(asio::io_service&);
 
     /**
      * Metoda służąca do wykonania ustawień.
      * 
-     * @param argc licznik argumentów
-     * @param argv tablica argumentów
-     * @return true jeżeli napotkano błąd, false wpp
+     * @param retransmit_limit z treści
+     * @param port z treści
+     * @param server z treści
      */
-    void setup(int argc, char **argv);
+    void setup(int retransmit_limit, std::string port, std::string server);
 };
 
 #endif	/* CLIENT_H */
