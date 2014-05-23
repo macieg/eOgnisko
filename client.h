@@ -19,17 +19,24 @@ private:
     std::string port;
     std::string server;
 
-    int TIMER_INTERVAL = 500; //czas dla timera (w milisekundach) do ponownego łączenia
-
+    int connect_interval = 500; //czas dla timera (w milisekundach) do ponownego łączenia
+    int keepalive_interval = 100; //odstęp czasu dla timera do wysyłania KEEPALIVE
     /////////////////////////////////////////////////////////////////
-    asio::ip::tcp::resolver resolver;
-    asio::ip::tcp::socket sock;
-//    boost::array<char, 4096> buffer;
-    boost::asio::streambuf stream_buffer;
-    ///////////////////////////////////////////////////////////////
-
-
+    //TCP
+    asio::ip::tcp::resolver resolver_tcp;
+    asio::ip::tcp::socket sock_tcp;
+    //    boost::array<char, 4096> buffer;
+    boost::asio::streambuf stream_buffer_tcp;
     asio::deadline_timer connect_timer; //timer sprawdzający co jakiś czas stan połączenie tcp
+    ///////////////////////////////////////////////////////////////
+    //UDP
+    asio::ip::udp::resolver resolver_udp;
+    asio::ip::udp::socket sock_udp;
+    boost::asio::streambuf stream_buffer_udp;
+    boost::array<char, 1 << 16 > udp_buf;
+    asio::deadline_timer keepalive_timer; //timer do wysyłania keepalive
+    ////////////////////////////////////////////////////////////////////
+
 
     /**
      * Obsługa zdarzenia odbioru wiadomości TCP.
@@ -44,7 +51,15 @@ private:
      * 
      * @param ec error code
      */
-    void connect_handler(const boost::system::error_code &ec);
+    void connect_handler_tcp(const boost::system::error_code &ec);
+
+    void send_udp_handler(const boost::system::error_code&, std::size_t);
+    /**
+     * Obsługa zdarzenia łączenia z serwerem po UDP.
+     * 
+     * @param ec error code
+     */
+    void connect_handler_udp(const boost::system::error_code &ec);
 
     /**
      * Metoda do wykrywania problemów z połączeniem TCP.

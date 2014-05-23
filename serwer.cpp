@@ -9,7 +9,7 @@ int fifo_size = 10560;
 int fifo_low_watermark = 0;
 int fifo_high_watermark = fifo_size;
 int buf_len = 10;
-int tx_interval = 5;
+int tx_interval = 100; //TODO zmienić na 5
 int TIMER_INTERVAL = 1;
 
 bool parse_command_line(int argc, char** argv)

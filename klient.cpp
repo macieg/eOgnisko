@@ -52,7 +52,8 @@ int main(int argc, char** argv)
             io_service.stop();
         }
     });
-    parse_command_line(argc, argv);
+    if (parse_command_line(argc, argv))
+        return 1;
 
     client klient(io_service);
     klient.setup(retransmit_limit, std::move(port), std::move(server));

@@ -11,8 +11,7 @@
 class connection {
 private:
     int client_id;
-    boost::posix_time::ptime last_udp;
-    
+    boost::posix_time::ptime last_udp;   
     boost::asio::ip::tcp::socket sock;
 
 
