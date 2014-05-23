@@ -3,8 +3,10 @@
 #define	SERVER_H
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/regex.hpp>
 #include <map>
 #include "connection.h"
+#include "parser.h"
 
 namespace asio = boost::asio;
 
@@ -21,23 +23,35 @@ private:
     int tx_interval;
 
     ///////////////////////////////////////////////////////////////////
-    asio::ip::tcp::endpoint endpoint;
-    asio::ip::tcp::acceptor acceptor;
-    asio::ip::tcp::socket sock;
-    boost::array<char, 4096> buffer;
-
-    asio::deadline_timer timer;
+    ///TCP
+    asio::ip::tcp::endpoint endpoint_tcp;
+    asio::ip::tcp::acceptor acceptor_tcp;
+    asio::ip::tcp::socket sock_tcp;
+    asio::deadline_timer timer_tcp;
+    ///UDP
+    asio::ip::udp::endpoint endpoint_udp;
+    asio::ip::udp::socket sock_udp;
+    boost::asio::streambuf stream_buffer;
+    boost::array<char, 1 << 16 > udp_buf;
+    asio::ip::udp::endpoint ep_udp;
     ///////////////////////////////////////////////////////////////////
 
     int id_sequence = 1; //Pomocnicza sekwencja do tworzenia id klientów.
 
-    int TIMER_INTERVAL; //czas dla timera (w sekundach) do rozsyłania raportów
-    /**
-     * Struktura danych przechowująca userów.
-     * //TODO być może do zmiany
-     */
-    std::map<asio::ip::tcp::endpoint, boost::shared_ptr<connection> > connections_map;
+    int TIMER_INTERVAL = 1; //czas dla timera (w sekundach) do rozsyłania raportów
+    
+    int udp_max_interval = 1000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta.
 
+    parser udp_parser;
+    /**
+     * Mapuje ID klienta przyznane przez serwer na połączenie z nim związane
+     */
+    std::map<int, boost::shared_ptr<connection> > connections_map_tcp;
+
+    /**
+     * Mapuje endpoint udp klienta na połączenie z nim związane
+     */
+    std::map<asio::ip::udp::endpoint, boost::shared_ptr<connection> > connections_map_udp;
     /**
      * Metoda wywoływana, io_service otrzyma do obsługi połączenie.
      * 
@@ -73,9 +87,14 @@ private:
      */
     std::string create_raport_part(boost::shared_ptr<connection>);
 
-    //Parsowanie argumentów programu.
-
-    void parse_command_line(int argc, char** argv);
+    /**
+     * Obsługuje wiadomość typu CLIENT_ID
+     * 
+     * @param client_id
+     */
+    void resolve_client_id_udp(int);
+    
+    void udp_receive_handler(const boost::system::error_code& error, std::size_t bytes_transferred);
 
     /**
      * Ustawia timer do wysyłania raportów.

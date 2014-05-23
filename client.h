@@ -24,7 +24,7 @@ private:
     /////////////////////////////////////////////////////////////////
     asio::ip::tcp::resolver resolver;
     asio::ip::tcp::socket sock;
-    boost::array<char, 4096> buffer;
+//    boost::array<char, 4096> buffer;
     boost::asio::streambuf stream_buffer;
     ///////////////////////////////////////////////////////////////
 

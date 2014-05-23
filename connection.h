@@ -2,6 +2,7 @@
 #ifndef CONNECTION_H
 #define	CONNECTION_H
 #include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 /**
  * Klasa reprezentująca połączenie klienta z serwerem
@@ -10,7 +11,10 @@
 class connection {
 private:
     int client_id;
+    boost::posix_time::ptime last_udp;
+    
     boost::asio::ip::tcp::socket sock;
+
 
 public:
 
@@ -28,7 +32,22 @@ public:
      * 
      * @return referencja na socket
      */
-    boost::asio::ip::tcp::socket& get_socket();
+    boost::asio::ip::tcp::socket& get_tcp_socket();
+
+    /**
+     * Zwraca różnicę czasu od ostatniej operacji UDP w
+     * kierunku klient->serwer.
+     * 
+     * @return czas ostatniego datagramu klient -> serwer
+     */
+    int get_time_from_last_udp();
+
+    /**
+     * Uaktualnia czas ostatniej operacji udp wykonanej w połączeniu
+     * w kierunku klient->serwer.
+     * 
+     */
+    void update_udp_time();
 
 };
 

@@ -1,4 +1,4 @@
-MFLAGS=-std=c++11 -Wall -lboost_system -lboost_program_options -lpthread
+MFLAGS=-std=c++11 -Wall -lboost_system -lboost_program_options -lpthread -lboost_regex
 DFLAGS=-std=c++11 -Wall -c
 K=klient
 S=serwer
@@ -6,6 +6,7 @@ C=connection
 SC=server
 KC=client
 M=mixer
+P=parser
 
 O=.o
 CPP=.cpp
@@ -16,8 +17,8 @@ all: $(K) $(S)
 $(K): $(K)$(CPP) $(KC)$(O)
 	g++ $(K)$(CPP) $(KC)$(O) -o $(K) $(MFLAGS)
 
-$(S): $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O)
-	g++ $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O) -o $(S) $(MFLAGS)
+$(S): $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O) $(P)$(O)
+	g++ $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O) -o $(S) $(P)$(O) $(MFLAGS)
 
 $(KC)$(O): $(KC)$(CPP) $(KC)$(H)
 	g++ $(DFLAGS) $(KC)$(CPP) -o $(KC)$(O)
@@ -31,7 +32,9 @@ $(M)$(O): $(M)$(CPP) $(M)$(H)
 $(C)$(O): $(C)$(CPP) $(C)$(H)
 	g++ $(DFLAGS) $(C)$(CPP) -o $(C)$(O)
 
+$(P)$(O): $(P)$(CPP) $(P)$(H)
+	g++ $(DFLAGS) $(P)$(CPP) -o $(P)$(O)
 
 clean:
-	rm $(K) $(S) $(KC)$(O) $(SC)$(O) $(M)$(O) $(C)$(O)
-	rm *~
+	rm -f $(K) $(S) $(KC)$(O) $(SC)$(O) $(M)$(O) $(C)$(O) $(P)$(O)
+	rm -f *~
