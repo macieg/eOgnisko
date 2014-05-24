@@ -56,7 +56,7 @@ int main(int argc, char** argv)
         return 1;
 
     client klient(io_service);
-    klient.setup(retransmit_limit, std::move(port), std::move(server));
+    klient.setup(retransmit_limit, port, server);
     io_service.run();
     std::cerr << "Koniec wykonania\n";
 }

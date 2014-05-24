@@ -3,7 +3,9 @@
 #define	CLIENT_H
 #include <string>
 #include <boost/asio.hpp> 
-#include <boost/array.hpp> 
+#include <boost/array.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include "parser.h"
 
 namespace asio = boost::asio;
 
@@ -19,6 +21,7 @@ private:
     std::string port;
     std::string server;
 
+    int max_raport_interval = 1000; //maksymalna tolerancja dla odstepu miedzy raportami
     int connect_interval = 500; //czas dla timera (w milisekundach) do ponownego łączenia
     int keepalive_interval = 100; //odstęp czasu dla timera do wysyłania KEEPALIVE
     /////////////////////////////////////////////////////////////////
@@ -37,7 +40,9 @@ private:
     asio::deadline_timer keepalive_timer; //timer do wysyłania keepalive
     ////////////////////////////////////////////////////////////////////
 
+    boost::posix_time::ptime last_raport_time; //czas ostatniego raportu
 
+    parser client_parser;
     /**
      * Obsługa zdarzenia odbioru wiadomości TCP.
      * 

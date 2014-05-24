@@ -262,14 +262,14 @@ void server::setup(int fifo_size,
         int buf_len,
         int tx_interval)
 {
-    tcp_timer_setup();
-    mixer_timer_setup();
-    network_setup();
-
     this->fifo_size = fifo_size;
     this->fifo_low_watermark = fifo_low_watermark;
     this->fifo_high_watermark = fifo_high_watermark;
     this->buf_len = buf_len;
     this->tx_interval = tx_interval;
+
+    tcp_timer_setup();
+    mixer_timer_setup();
+    network_setup();
 }
 

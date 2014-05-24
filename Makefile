@@ -14,8 +14,8 @@ H=.h
 
 all: $(K) $(S)
 
-$(K): $(K)$(CPP) $(KC)$(O)
-	g++ $(K)$(CPP) $(KC)$(O) -o $(K) $(MFLAGS)
+$(K): $(K)$(CPP) $(KC)$(O) $(P)$(O)
+	g++ $(K)$(CPP) $(KC)$(O) $(P)$(O) -o $(K) $(MFLAGS)
 
 $(S): $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O) $(P)$(O)
 	g++ $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O) -o $(S) $(P)$(O) $(MFLAGS)
@@ -29,7 +29,7 @@ $(SC)$(O): $(SC)$(CPP) $(SC)$(H)
 $(M)$(O): $(M)$(CPP) $(M)$(H)
 	g++ $(DFLAGS) $(M)$(CPP) -o $(M)$(O)
 
-$(C)$(O): $(C)$(CPP) $(C)$(H)
+$(C)$(O): $(C)$(CPP) $(C)$(H) 
 	g++ $(DFLAGS) $(C)$(CPP) -o $(C)$(O)
 
 $(P)$(O): $(P)$(CPP) $(P)$(H)

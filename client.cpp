@@ -8,9 +8,18 @@ void client::receive_handler(const boost::system::error_code &ec, std::size_t by
     if (!ec)
     {
         //std::cerr << "READ SUCCESS " << "\n";
+        last_raport_time = boost::posix_time::second_clock::local_time();
+
         std::ostringstream ss;
         ss << &stream_buffer_tcp;
         std::cerr << ss.str();
+        
+        stream_buffer_udp = stream_buffer_tcp;
+        std::string s = ss.str();
+        int id;
+        if (client_parser.matches_client_id(s, id)) {
+            //TODO rano send udp
+        }
     }
 
     asio::async_read_until(sock_tcp,
@@ -43,7 +52,7 @@ void client::connect_handler_tcp(const boost::system::error_code &ec)
     }
     else
     {
-        std::cerr << "CONNECT FAIL TCP\n";
+        std::cerr << "CONNECT FAIL TCP " << ec.value() << "\n";
     }
 }
 
@@ -64,14 +73,15 @@ void client::timer_handler(const boost::system::error_code& error)
     if (!error)
     {
         std::cerr << "TIMER HANDLER\n";
-        std::string a("a"); //TODO poprawić to całe diabelstwo na 
-        asio::async_write(sock_tcp, asio::buffer(a), [this](boost::system::error_code err, std::size_t s) {
-            if (err)
-            {
-                std::cerr << "BRAK POLACZENIA\n";
-                setup_networking();
-            }
-        });
+        boost::posix_time::time_duration tm(boost::posix_time::second_clock::local_time() - last_raport_time);
+        std::cerr << "TM: " << tm.total_milliseconds() << "\n";
+        if (tm.total_milliseconds() > max_raport_interval)
+        {
+            std::cerr << "BRAK POLACZENIA\n";
+            sock_tcp.close();
+            setup_networking();
+        }
+
         setup_timer();
     }
     else
@@ -88,29 +98,14 @@ void client::setup_timer()
 
 void client::setup_networking()
 {
+    last_raport_time = boost::posix_time::second_clock::local_time();
+
     asio::ip::tcp::resolver::query query_tcp(server, port);
-    resolver_tcp.async_resolve(query_tcp,
-            [this](boost::system::error_code ec, asio::ip::tcp::resolver::iterator it) {
-                if (!ec)
-                {
-                    sock_tcp.async_connect(*it, boost::bind(&client::connect_handler_tcp, this, asio::placeholders::error));
-                }
-            }
-    );
+    asio::ip::tcp::resolver::iterator it_tcp = resolver_tcp.resolve(query_tcp);
+    sock_tcp.async_connect(*it_tcp, boost::bind(&client::connect_handler_tcp, this, asio::placeholders::error));
 
     asio::ip::udp::resolver::query query_udp(server, port);
-    
-    resolver_udp.async_resolve(query_udp,
-            [this](boost::system::error_code ec, asio::ip::udp::resolver::iterator it) {
-                if (!ec)
-                {
-                    std::cerr << "KURWA DZIALA " << "\n";
-                    sock_udp.async_send_to(asio::buffer("yy kurwy"), *it,
-                            boost::bind(&client::send_udp_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
-                            );
-                }
-            }
-    );
+    asio::ip::udp::resolver::iterator it_udp = resolver_udp.resolve(query_udp);
 }
 
 client::client(asio::io_service& io_service) : resolver_tcp(io_service),
@@ -118,16 +113,17 @@ sock_tcp(io_service),
 connect_timer(io_service, boost::posix_time::seconds(connect_interval)),
 resolver_udp(io_service),
 sock_udp(io_service),
-keepalive_timer(io_service, boost::posix_time::seconds(keepalive_interval))
+keepalive_timer(io_service, boost::posix_time::seconds(keepalive_interval)),
+client_parser()
 {
 }
 
 void client::setup(int retransmit_limit, std::string port, std::string server)
 {
-    setup_timer();
-    setup_networking();
-
     this->retransmit_limit = retransmit_limit;
     this->port = std::move(port);
     this->server = std::move(server);
+
+    setup_networking();
+    setup_timer();
 }
