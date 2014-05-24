@@ -68,7 +68,7 @@ std::string server::create_data_response() //TODO nic nie ma
     resp << " 0"; //ack
     resp << " 0"; //win
     resp << "\n";
-    resp << "hugo\n";
+    resp << "hugo";
 
     return resp.str();
 }
@@ -201,12 +201,12 @@ void server::resolve_keepalive_udp(int client_id)
     connections_map_tcp[client_id]->update_udp_time();
 }
 
-void server::udp_receive_handler(const boost::system::error_code& error, std::size_t bytes_transferred)
+void server::udp_receive_handler(const boost::system::error_code& error, std::size_t bt)
 {
     if (!error)
     {
         std::cerr << ep_udp << " UDP\n";
-        std::cerr << "|" <<udp_buf.c_array() <<"|\n";
+        std::cerr << udp_buf.c_array() << "\n";
 
         char* s = udp_buf.c_array(); //FIXME za dużo enterów czasem i nie działają regexy
         int client_id, nr;
@@ -228,7 +228,7 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
                 resolve_retransmit_udp(client_id, nr);
         }
         
-        sock_udp.async_receive_from(asio::buffer(udp_buf), ep_udp,
+        sock_udp.async_receive_from(asio::buffer(udp_buf, bt), ep_udp,
                 boost::bind(&server::udp_receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred));
     }
     else

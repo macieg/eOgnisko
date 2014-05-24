@@ -6,7 +6,7 @@ pattern_ack("ACK ([0-9]*) ([0-9]*)\n"),
 pattern_retransmit("RETRANSMIT ([0-9]*)\n"),
 pattern_keepalive("KEEPALIVE\n"),
 pattern_upload("UPLOAD ([0-9]*)\n(.*)"),
-pattern_data("DATA ([0-9]*) ([0-9]*) ([0-9]*)(\n)(.*)")
+pattern_data("DATA ([0-9]*) ([0-9]*) ([0-9]*)\n(.*)")
 {
 }
 

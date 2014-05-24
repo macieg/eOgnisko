@@ -14,7 +14,7 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
         std::cerr << ss.str();
         
         std::string confirm = ss.str();
-        std::cerr << "|" << confirm << "|\n";
+//        std::cerr << "|" << confirm << "|\n";
         int id;
         if (client_parser.matches_client_id(confirm, id)) //jezeli otrzymalem swoj id, to odsylam go po udp jako potwierdzenie
         {
@@ -93,16 +93,20 @@ void client::udp_listening()
                 {
                     if (this->ep_udp == this->server_udp_endpoint) //czy na pewno dostaje udp od dobrego serwera
                     {
-                        std::cerr << "OTRZYMANO UDP\n";
+//                        std::cerr << "OTRZYMANO UDP\n";
                         int nr, ack, win;
                         std::string data;
-
+                        
                         if (this->client_parser.matches_data(udp_receive_buffer.c_array(), nr, ack, win, data))
-                            asio::async_write(std_output, asio::buffer(data),
-                                [this](boost::system::error_code ec, std::size_t bt) {
-                                    if (ec)
-                                        std::cerr << "PROBLEM Z ZAPISEM NA STDOUT" << ec << "\n";
-                                });
+                        {
+                            std::cerr << "|" << data << "|\n";
+//asynchroniczne pisanie na wyjscie                            
+//                            asio::async_write(std_output, asio::buffer(data),
+//                                [this](boost::system::error_code ec, std::size_t bt) {
+//                                    if (ec)
+//                                        std::cerr << "PROBLEM Z ZAPISEM NA STDOUT" << ec << "\n";
+//                                });
+                        }
                     }
                     udp_listening();
                 }
@@ -117,9 +121,9 @@ void client::connection_timer_handler(const boost::system::error_code& error)
 {
     if (!error)
     {
-        std::cerr << "TIMER HANDLER\n";
+//        std::cerr << "CONNECTION TIMER HANDLER\n";
         boost::posix_time::time_duration tm(boost::posix_time::second_clock::local_time() - last_raport_time);
-        std::cerr << "TM: " << tm.total_milliseconds() << "\n";
+//        std::cerr << "TM: " << tm.total_milliseconds() << "\n";
         if (tm.total_milliseconds() > max_raport_interval)
         {
             std::cerr << "BRAK POLACZENIA\n";
