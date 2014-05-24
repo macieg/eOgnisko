@@ -79,7 +79,7 @@ public:
      * @param dane
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_data(std::string&, int&, int&, int&, std::string&);
+    bool matches_data(char*, int&, int&, int&, std::string&);
 };
 
 

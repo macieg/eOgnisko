@@ -12,7 +12,7 @@ O=.o
 CPP=.cpp
 H=.h
 
-all: $(K) $(S)
+all: $(S) $(K)
 
 $(K): $(K)$(CPP) $(KC)$(O) $(P)$(O)
 	g++ $(K)$(CPP) $(KC)$(O) $(P)$(O) -o $(K) $(MFLAGS)

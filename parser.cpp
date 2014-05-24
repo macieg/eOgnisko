@@ -61,22 +61,21 @@ bool parser::matches_upload(std::string& input_string, int& nr, std::string& dat
     if (boost::regex_match(input_string.c_str(), groups, pattern_upload))
     {
         nr = std::atoi(groups[1].first);
-        data = groups[2];
+        data = groups[2].first;
         return true;
     }
     return false;
 }
 
-bool parser::matches_data(std::string& input_string, int& nr, int& ack, int& win, std::string& data)
+bool parser::matches_data(char* input_string, int& nr, int& ack, int& win, std::string& data)
 {
     boost::cmatch groups;
-    if (boost::regex_match(input_string.c_str(), groups, pattern_data))
+    if (boost::regex_match(input_string, groups, pattern_data))
     {
         nr = std::atoi(groups[1].first);
         ack = std::atoi(groups[2].first);
         win = std::atoi(groups[3].first);
-        std::cerr << "DATA - " << data;
-        data = groups[4];
+        data = groups[4].first;
         return true;
     }
     return false;

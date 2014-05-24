@@ -36,12 +36,18 @@ private:
     //UDP
     asio::ip::udp::resolver resolver_udp;
     asio::ip::udp::socket sock_udp;
+    asio::ip::udp::endpoint ep_udp;
     asio::ip::udp::endpoint server_udp_endpoint;
     boost::asio::streambuf stream_buffer_udp;
     boost::array<char, 1 << 16 > udp_buf;
+    boost::array<char, 1 << 16 > udp_receive_buffer;
     asio::deadline_timer keepalive_timer; //timer do wysyłania keepalive
     ////////////////////////////////////////////////////////////////////
-
+    //STDIN STDOUT
+    asio::posix::stream_descriptor std_input;
+    asio::posix::stream_descriptor std_output;
+    boost::array<char, 1 << 16 > stdin_buf;
+    /////////////////////////////////////////////////////
     boost::posix_time::ptime last_raport_time; //czas ostatniego raportu
 
     parser client_parser;
@@ -66,13 +72,23 @@ private:
      * @param 
      */
     void send_udp_handler(const boost::system::error_code&, std::size_t);
-    
+
     /**
      * Obsługa zdarzenia łączenia z serwerem po UDP.
      * 
      * @param ec error code
      */
     void receive_udp_handler(const boost::system::error_code &ec);
+
+    /**
+     * Rozpoczyna nasłuchiwanie ze standardowego wejścia.
+     */
+    void read_std_in();
+    
+    /**
+     * Nasłuchuje na komunikaty udp i odpowiednio nimi zarządza.
+     */
+    void udp_listening();
 
     /**
      * Metoda do wykrywania problemów z połączeniem TCP.

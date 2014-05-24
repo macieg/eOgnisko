@@ -14,6 +14,7 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
         std::cerr << ss.str();
 
         std::string confirm = ss.str();
+        std::cerr << "|" << confirm << "|\n";
         int id;
         if (client_parser.matches_client_id(confirm, id)) //jezeli otrzymalem swoj id, to odsylam go po udp jako potwierdzenie
         {
@@ -22,22 +23,25 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
                         if (!ec)
                         {
                             std::cerr << "ODESLANO CLIENTID POPRAWNIE\n";
+                            read_std_in();
+                            udp_listening(); //zaczynam czekać na udp od serwera
                             run_keepalive_timer(); //i ustawiam timer do KEEPALIVE
                         }
                         else
                             std::cerr << "BLAD PODCZAS WYSYLANIA CLIENTID " << ec << " " << bt << "\n";
                     });
         }
+
+        asio::async_read_until(sock_tcp,
+                stream_buffer_tcp, '\n',
+                boost::bind(&client::receive_tcp_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
+                );
     }
     else
     {
+        keepalive_timer.cancel();
         std::cerr << "READ FAILED " << ec << "\n";
     }
-
-    asio::async_read_until(sock_tcp,
-            stream_buffer_tcp, '\n',
-            boost::bind(&client::receive_tcp_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
-            );
 }
 
 void client::send_udp_handler(const boost::system::error_code& ec, std::size_t bt)
@@ -68,16 +72,45 @@ void client::connect_tcp_handler(const boost::system::error_code &ec)
     }
 }
 
-void client::receive_udp_handler(const boost::system::error_code &ec)
+void client::read_std_in()
 {
-    if (!ec)
-    {
-        std::cerr << "RECEIVE UDP SUCCESS\n";
-    }
-    else
-    {
-        std::cerr << "RECEIVE UDP FAIL\n";
-    }
+    asio::async_read(std_input, asio::buffer(stdin_buf),
+            [this](const boost::system::error_code& ec, std::size_t bt) {
+                std::cerr << stdin_buf.c_array();
+                if (ec)
+                    std::cerr << "READ STDIN FAILED " << ec << "\n";
+            }
+    );
+}
+
+void client::udp_listening()
+{
+    //    std::cerr << "START UDP LISTENING\n";
+
+    sock_udp.async_receive_from(asio::buffer(udp_receive_buffer), ep_udp,
+            [this](const boost::system::error_code& ec, std::size_t bt) {
+                if (!ec)
+                {
+                    if (this->ep_udp == this->server_udp_endpoint) //czy na pewno dostaje udp od dobrego serwera
+                    {
+                        std::cerr << "OTRZYMANO UDP\n";
+                        int nr, ack, win;
+                        std::string data;
+
+                        if (this->client_parser.matches_data(udp_receive_buffer.c_array(), nr, ack, win, data))
+                            asio::async_write(std_output, asio::buffer(data),
+                                [this](boost::system::error_code ec, std::size_t bt) {
+                                    if (ec)
+                                        std::cerr << "PROBLEM Z ZAPISEM NA STDOUT" << ec << "\n";
+                                });
+                    }
+                    udp_listening();
+                }
+                else
+                {
+                    std::cerr << "BLAD PRZY UZYSKIWANIU UDP " << ec << "\n";
+                }
+            });
 }
 
 void client::connection_timer_handler(const boost::system::error_code& error)
@@ -112,7 +145,7 @@ void client::run_keepalive_timer()
                     [this](boost::system::error_code ec, std::size_t bt) {
                         if (!ec)
                         {
-                            std::cerr << "WYSLANO POPRAWNIE KEEPALIVE\n";
+                            //                            std::cerr << "WYSLANO POPRAWNIE KEEPALIVE\n";
                             run_keepalive_timer();
                         }
                         else
@@ -145,7 +178,7 @@ void client::setup_networking()
     server_udp_endpoint = *it_udp;
 }
 
-client::client(asio::io_service& io_service) : 
+client::client(asio::io_service& io_service) :
 KEEPALIVE("KEEPALIVE\n"),
 resolver_tcp(io_service),
 sock_tcp(io_service),
@@ -153,6 +186,8 @@ connect_timer(io_service, boost::posix_time::seconds(connect_interval)),
 resolver_udp(io_service),
 sock_udp(io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0)),
 keepalive_timer(io_service, boost::posix_time::seconds(keepalive_interval)),
+std_input(io_service, ::dup(STDIN_FILENO)),
+std_output(io_service, ::dup(STDOUT_FILENO)),
 client_parser()
 {
 }

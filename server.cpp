@@ -28,7 +28,6 @@ void server::accept_handler(const boost::system::error_code &ec)
         std::cerr << "ACCEPT HANDLER FAILURE " << ec << "\n";
     }
 
-
     acceptor_tcp.async_accept(
             sock_tcp,
             boost::bind(&server::accept_handler, this, asio::placeholders::error)
@@ -202,8 +201,9 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
     if (!error)
     {
         std::cerr << ep_udp << " UDP\n";
+        std::cerr << "|" <<udp_buf.data() <<"|\n";
 
-        std::string s(udp_buf.data());
+        std::string s(udp_buf.data()); //FIXME za dużo enterów czasem i nie działają regexy
         int client_id, nr;
         std::string dane;
 
