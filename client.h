@@ -39,7 +39,6 @@ private:
     asio::ip::udp::endpoint ep_udp;
     asio::ip::udp::endpoint server_udp_endpoint;
     boost::asio::streambuf stream_buffer_udp;
-    boost::array<char, 1 << 16 > udp_buf;
     boost::array<char, 1 << 16 > udp_receive_buffer;
     asio::deadline_timer keepalive_timer; //timer do wysyłania keepalive
     ////////////////////////////////////////////////////////////////////

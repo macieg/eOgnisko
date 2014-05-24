@@ -13,9 +13,19 @@ private:
     const boost::regex pattern_data;
 
 public:
-    
+
     parser();
-    
+
+    /**
+     * Sprawdza, czy zadany cstring pasuje do:
+     * CLIENT clientid\n
+     * 
+     * @param zadany cstring
+     * @param id klienta
+     * @return true jezeli pasuje, false w przeciwnym wypadku
+     */
+    bool matches_client_id(char*, int&);
+
     /**
      * Sprawdza, czy zadany string pasuje do:
      * CLIENT clientid\n
@@ -45,7 +55,7 @@ public:
      * @param nr
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_retransmit(std::string&, int&);
+    bool matches_retransmit(char*, int&);
 
     /**
      * Sprawdza, czy zadany string pasuje do:
@@ -54,8 +64,8 @@ public:
      * @param zadany string
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_keepalive(std::string&);
-    
+    bool matches_keepalive(char*);
+
     /**
      * Sprawdza, czy zadany string pasuje do:
      * UPLOAD nr\n
@@ -66,8 +76,8 @@ public:
      * @param dane
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_upload(std::string&, int&, std::string&);
-    
+    bool matches_upload(char*, int&, std::string&);
+
     /**
      * DATA nr ack win\n
      * [dane]

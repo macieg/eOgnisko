@@ -12,7 +12,7 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
         std::ostringstream ss;
         ss << &stream_buffer_tcp;
         std::cerr << ss.str();
-
+        
         std::string confirm = ss.str();
         std::cerr << "|" << confirm << "|\n";
         int id;

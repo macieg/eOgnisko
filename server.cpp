@@ -3,6 +3,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/timer.hpp>
+#include <list>
 #include "mixer.h"
 #include "server.h"
 
@@ -95,6 +96,7 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
         message << "\n"; //Raport powinien być poprzedzony pustą linią.
         auto tcp_iter = std::begin(connections_map_tcp);
 
+        
         while (tcp_iter != std::end(connections_map_tcp)) //Wyrzucamy z mapy w przypadku zerwania połączenia.
         {
             try
@@ -103,13 +105,16 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
                 message << create_raport_part((*tcp_iter).second);
 
                 std::cerr << (*tcp_iter).second->get_tcp_socket().remote_endpoint() << "\n";
+                tcp_iter++;
             }
             catch (std::exception& e)
             {
                 std::cerr << "STRACILISMY USERA\n";
-                connections_map_tcp.erase(tcp_iter);
+                int client_id = tcp_iter->first;
+                tcp_iter++;
+                connections_map_tcp.erase(client_id);
             }
-            tcp_iter++;
+//            tcp_iter++;
         }
 
         auto udp_iter = std::begin(connections_map_udp);
@@ -201,9 +206,9 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
     if (!error)
     {
         std::cerr << ep_udp << " UDP\n";
-        std::cerr << "|" <<udp_buf.data() <<"|\n";
+        std::cerr << "|" <<udp_buf.c_array() <<"|\n";
 
-        std::string s(udp_buf.data()); //FIXME za dużo enterów czasem i nie działają regexy
+        char* s = udp_buf.c_array(); //FIXME za dużo enterów czasem i nie działają regexy
         int client_id, nr;
         std::string dane;
 
@@ -222,7 +227,7 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
             else if (udp_parser.matches_retransmit(s, nr))
                 resolve_retransmit_udp(client_id, nr);
         }
-
+        
         sock_udp.async_receive_from(asio::buffer(udp_buf), ep_udp,
                 boost::bind(&server::udp_receive_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred));
     }

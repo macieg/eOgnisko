@@ -10,6 +10,18 @@ pattern_data("DATA ([0-9]*) ([0-9]*) ([0-9]*)(\n)(.*)")
 {
 }
 
+bool parser::matches_client_id(char* input_string, int& client_id)
+{
+    boost::cmatch groups;
+    if (boost::regex_match(input_string, groups, pattern_client_id))
+    {
+        client_id = std::atoi(groups[1].first);
+        return true;
+    }
+
+    return false;
+}
+
 bool parser::matches_client_id(std::string& input_string, int& client_id)
 {
     boost::cmatch groups;
@@ -35,10 +47,10 @@ bool parser::matches_ack(std::string& input_string, int& ack, int& win)
     return false;
 }
 
-bool parser::matches_retransmit(std::string& input_string, int& nr)
+bool parser::matches_retransmit(char* input_string, int& nr)
 {
     boost::cmatch groups;
-    if (boost::regex_match(input_string.c_str(), groups, pattern_retransmit))
+    if (boost::regex_match(input_string, groups, pattern_retransmit))
     {
         nr = std::atoi(groups[1].first);
         return true;
@@ -47,18 +59,18 @@ bool parser::matches_retransmit(std::string& input_string, int& nr)
     return false;
 }
 
-bool parser::matches_keepalive(std::string& input_string)
+bool parser::matches_keepalive(char* input_string)
 {
     boost::cmatch groups;
-    if (boost::regex_match(input_string.c_str(), groups, pattern_keepalive))
+    if (boost::regex_match(input_string, groups, pattern_keepalive))
         return true;
     return false;
 }
 
-bool parser::matches_upload(std::string& input_string, int& nr, std::string& data)
+bool parser::matches_upload(char* input_string, int& nr, std::string& data)
 {
     boost::cmatch groups;
-    if (boost::regex_match(input_string.c_str(), groups, pattern_upload))
+    if (boost::regex_match(input_string, groups, pattern_upload))
     {
         nr = std::atoi(groups[1].first);
         data = groups[2].first;
