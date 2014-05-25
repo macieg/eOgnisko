@@ -7,6 +7,7 @@
 #include <map>
 #include "connection.h"
 #include "parser.h"
+#include "mixer.h"
 
 namespace asio = boost::asio;
 
@@ -25,14 +26,20 @@ private:
     boost::array<char, 1 << 16 > udp_buf;
     asio::ip::udp::endpoint ep_udp;
     asio::deadline_timer timer_mixer;
-    ///////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////
+
+    static const int raport_timer_interval = 1; //czas dla timera (w sekundach) do rozsyłania raportów
+    static const int udp_max_interval = 10000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta. //TODO zmienic na 1000
+    const float magic_number = 176.4f; // magiczna liczba do tworzenia rozmiaru bufora z miksera
+    static const int MIXER_OUTPUT_BUFFER_SIZE = (1<<16) + 10;
 
     int id_sequence = 1; //Pomocnicza sekwencja do tworzenia id klientów.
+    int nr_mixer_global = 0; //Numer ostatnio wygenerowanego datagramu przez mixer.
 
-    int raport_timer_interval = 1; //czas dla timera (w sekundach) do rozsyłania raportów
+    std::vector <mixer_input> mixer_inputs; //dane do miksera
 
-    int udp_max_interval = 10000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta. //TODO zmienic na 1000
-    
+    std::vector<char> mixer_output; //dane wyjsciowe z miksera
+
     parser udp_parser;
     /**
      * Mapuje ID klienta przyznane przez serwer na połączenie z nim związane
@@ -74,7 +81,7 @@ private:
      * @param client_id
      * @return string z potwierdzeniem
      */
-    std::string create_accept_response(int client_id);
+    std::string create_accept_response(int);
 
     /**
      * Buduje fragment raportu z informacjami o połączeniu.(nizej wyglad)
@@ -88,10 +95,9 @@ private:
     /**
      * Buduje odpowiedź ze zmiksowanymi danymi.
      * 
-     * @param połączenie klient<->serwer
-     * @return wiadomość ze zmiksowanymi danymi
+     * @return rozmiar zmiksowanych danych
      */
-    std::string create_data_response(boost::shared_ptr<connection>);
+    size_t create_data();
 
     /**
      * Obsługuje wiadomość typu CLIENT_ID.
@@ -108,15 +114,16 @@ private:
      * @param pozostala liczba miejsc (bajtow) w fifo
      */
     void send_ack_udp(int, int, int);
-    
+
     /**
      * Obsługuje wiadomość typu UPLOAD.
      * 
      * @param client_id
      * @param nr
-     * @param dane
+     * @param bytes transferred
+     * @param header size
      */
-    void resolve_upload_udp(int, int, std::string);
+    void resolve_upload_udp(int, int, int, int);
 
     /**
      * Obsługuje wiadomość typu RETRANSMIT.

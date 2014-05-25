@@ -4,13 +4,20 @@
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "server_attributes.h"
+#include "mixer.h"
 
 namespace asio = boost::asio;
+
 /**
  * Klasa reprezentująca połączenie klienta z serwerem
  * utrzymuje wszelkie dane na temat połączenia.
  */
 class connection {
+
+    enum class FIFO_STATE {
+        FILLING, ACTIVE
+    };
+    
 private:
     int client_id;
     int current_bytes_in_fifo;
@@ -22,7 +29,8 @@ private:
     char* fifo;
     int nr_global;
     int ack_global;
-
+    FIFO_STATE fifo_state;
+    struct mixer_input mixer_input;
 
 public:
 
@@ -42,14 +50,14 @@ public:
      * @return referencja na socket
      */
     boost::asio::ip::tcp::socket& get_tcp_socket();
-    
+
     /**
      * Zwraca referecje na udp endpoint.
      * 
      * @return udp endpoint
      */
     asio::ip::udp::endpoint& get_udp_endpoint();
-    
+
     /**
      * Ustawia endpoint udp połączenia (końcówka klienta).
      * 
@@ -92,18 +100,56 @@ public:
      * @return maksymalna dotychczasowa liczba bajtów w kolejce
      */
     int get_max_bytes_int_fifo();
-    
+
     /**
      * Dołącza do fifo danego w argumencie stringa.
      * 
-     * @param string dołączany do fifo
+     * @param cstring dołączany do fifo
+     * @param długość nagłówka
+     * @param długość danych
      */
-    void append(std::string&);
-    
+    void append(const char*, int, int);
+
     /**
      * Czyści historię "minimum/maksimum" danych w kolejce.
      */
     void clear_history();
+
+    /**
+     * Zwraca informację o mówiącą, czy kolejka FIFO
+     * połączenia znajduje się w stanie ACTIVE.
+     * 
+     * @return true jezeli jest, false wpp
+     */
+    bool is_fifo_active();
+
+    /**
+     * Usuwa z kolejki pierwsze n bajtów.
+     * 
+     * @param ilość bajtów do usunięcia
+     */
+    void consume_fifo();
+
+    /**
+     * Zwraca obiekt mixer input powiązany z połączeniem.
+     * 
+     * @return obiekt struct mixer input
+     */
+    struct mixer_input get_mixer_input();
+    
+    /**
+     * Ustawia mixer_input powiązany z połączeniem.
+     * 
+     * @param struct mixer_input
+     */
+    void set_mixer_intput(struct mixer_input);
+    
+    /**
+     * Zwraca informację o ilości wolnego miejsca w kolejce.
+     * 
+     * @return ilość wolnego miejsca w kolejce w bajtach
+     */
+    int left_bytes_in_fifo();
 
 };
 

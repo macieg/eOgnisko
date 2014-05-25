@@ -24,7 +24,7 @@ public:
      * @param id klienta
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_client_id(char*, int&);
+    bool matches_client_id(const char*, int&);
 
     /**
      * Sprawdza, czy zadany string pasuje do:
@@ -45,7 +45,7 @@ public:
      * @param win
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_ack(char*, int&, int&);
+    bool matches_ack(const char*, int&, int&);
 
     /**
      * Sprawdza, czy zadany string pasuje do:
@@ -55,7 +55,7 @@ public:
      * @param nr
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_retransmit(char*, int&);
+    bool matches_retransmit(const char*, int&);
 
     /**
      * Sprawdza, czy zadany string pasuje do:
@@ -64,7 +64,7 @@ public:
      * @param zadany string
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_keepalive(char*);
+    bool matches_keepalive(const char*);
 
     /**
      * Sprawdza, czy zadany string pasuje do:
@@ -74,9 +74,11 @@ public:
      * @param zadany string
      * @param nr
      * @param dane
+     * @param liczna bajtów w stringu
+     * @param rozmiar nagłowka
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_upload(char*, int&, std::string&);
+    bool matches_upload(const char*, int&, int, int&);
 
     /**
      * DATA nr ack win\n
@@ -86,10 +88,11 @@ public:
      * @param nr
      * @param ack
      * @param win
-     * @param dane
+     * @param liczba bajtów w stringu
+     * @param rozmiar nagłówka
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_data(char*, int&, int&, int&, std::string&);
+    bool matches_data(const char*, int&, int&, int&, int, int&);
 };
 
 

@@ -2,9 +2,10 @@
 #ifndef CLIENT_H
 #define	CLIENT_H
 #include <string>
-#include <boost/asio.hpp> 
+#include <boost/asio.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/array.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <chrono>
 #include "parser.h"
 
 namespace asio = boost::asio;
@@ -25,20 +26,21 @@ private:
     int connect_interval = 500; //czas dla timera (w milisekundach) do ponownego łączenia
     int keepalive_interval = 100; //odstęp czasu dla timera do wysyłania KEEPALIVE
     const std::string KEEPALIVE;
-    const int EOF_ERR_NO;
-    
+    static const char NEWLINE_SIGN = '\n';
+    static const int EOF_ERR_NO = 2; //boostowy error number
+
     //wartości do pamiętania
-    int nr_global;
-    int ack_global;
-    int win_global;
-    
+    int my_nr_global; //numer wczytanego datagramu
+    int server_nr_global; //number wczytanego datagramu serwera
+    int win_global; //liczba wolnych bajtów w kolejce
+
     /////////////////////////////////////////////////////////////////
     //TCP
     asio::ip::tcp::resolver resolver_tcp;
     asio::ip::tcp::socket sock_tcp;
     //    boost::array<char, 4096> buffer;
     boost::asio::streambuf stream_buffer_tcp;
-    asio::deadline_timer connect_timer; //timer sprawdzający co jakiś czas stan połączenie tcp
+    asio::steady_timer connect_timer; //timer sprawdzający co jakiś czas stan połączenie tcp
     ///////////////////////////////////////////////////////////////
     //UDP
     asio::ip::udp::resolver resolver_udp;
@@ -47,16 +49,17 @@ private:
     asio::ip::udp::endpoint server_udp_endpoint;
     boost::asio::streambuf stream_buffer_udp;
     boost::array<char, 1 << 16 > udp_receive_buffer;
-    asio::deadline_timer keepalive_timer; //timer do wysyłania keepalive
+    asio::steady_timer keepalive_timer; //timer do wysyłania keepalive
     ////////////////////////////////////////////////////////////////////
     //STDIN STDOUT
     asio::posix::stream_descriptor std_input;
     asio::posix::stream_descriptor std_output;
     boost::array<char, 1 << 16 > stdin_buf;
+    ;
     /////////////////////////////////////////////////////
-    boost::posix_time::ptime last_raport_time; //czas ostatniego raportu
+    std::chrono::system_clock::time_point last_server_msg; //czas ostatniej wiadomości od serwera
     parser client_parser;
-    
+
     /**
      * Obsługa zdarzenia odbioru wiadomości TCP.
      * 
@@ -85,16 +88,17 @@ private:
      * @param liczba danych otrzymanych z wejścia w bajtach
      */
     void send_upload_message(std::size_t);
-    
+
     /**
      * Obsługa zdarzenia otrzymania wiadomości DATA od serwera.
      * 
      * @param nr
      * @param ack
      * @param win
-     * @param dane
+     * @param długość nagłówka
+     * @param liczba przesłanych bajtów
      */
-    void resolve_data_message(int, int, int, std::string&);
+    void resolve_data_message(int, int, int, int, int);
 
     /**
      * Obsługa zdarzenia otrzymania wiadomości ACK od serwera.
@@ -103,18 +107,11 @@ private:
      * @param win
      */
     void resolve_ack_message(int, int);
-    
+
     /**
      * Nasłuchuje na komunikaty udp i odpowiednio nimi zarządza.
      */
     void udp_listening();
-
-    /**
-     * Metoda do wykrywania problemów z połączeniem TCP.
-     * 
-     * @param boost::system::error_code error code
-     */
-    void connection_timer_handler(const boost::system::error_code&);
 
     /**
      * Metoda do wywoływania timera wysyłające wiadomości KEEPALIVE.
@@ -124,6 +121,11 @@ private:
      * Ustawia i uruchamia timer sprawdzający stan połączenia.
      */
     void run_connection_timer();
+    
+    /**
+     * Uaktualnia czas otrzymania ostatniej wiadomości od serwera.
+     */
+    void update_last_server_msg();
 
     /**
      * Ustawienia sieci.
@@ -142,6 +144,13 @@ public:
      * @param server z treści
      */
     void setup(int retransmit_limit, std::string port, std::string server);
+
+    class connection_exception : public std::exception {
+
+        const char* what() const noexcept {
+            return "[Error] Connection failed! Trying to reconnect...";
+        }
+    };
 };
 
 #endif	/* CLIENT_H */

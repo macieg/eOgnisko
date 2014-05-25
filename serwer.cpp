@@ -38,31 +38,31 @@ bool parse_command_line(int argc, char** argv)
     }
 
     if (!vm.count("fifohighwatermark"))
-        server_attributes::fifo_low_watermark = server_attributes::fifo_size;
+        server_attributes::fifo_high_watermark = server_attributes::fifo_size;
 
     return 0;
 }
 
 int main(int argc, char** argv)
 {
-    
+
     std::ios_base::sync_with_stdio(false); //Przyspieszenie cerr.
     asio::io_service io_service;
-    
-    asio::signal_set signals(io_service, SIGINT);
-    signals.async_wait([&](boost::system::error_code ec, std::size_t sn) {
-        if (!ec)
-        {
-            std::cerr << "Otrzymano sygnał " << sn << " konczenie pracy\n";
-            io_service.stop();
-        }
-    });
+
     if (parse_command_line(argc, argv))
         return 0;
 
     server serwer(io_service);
-    serwer.setup();
 
-    io_service.run();
-    std::cerr << "Koniec wykonania" << std::endl;
+    try
+    {
+        serwer.setup();
+        io_service.run();
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << "[Error] '" << e.what() << "'" << std::endl;
+    }
+
+    std::cerr << "[FINISHED]" << std::endl;
 }

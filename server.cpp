@@ -3,29 +3,26 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/timer.hpp>
-#include "mixer.h"
 #include "server.h"
 
 void server::accept_handler(const boost::system::error_code &ec)
 {
     if (!ec)
     {
+        std::cerr << "[Info] New user - '" << sock_tcp.remote_endpoint() << "' - " << id_sequence << std::endl;
+
         boost::shared_ptr<connection> conn(new connection(id_sequence, std::move(sock_tcp)));
-
+        std::cerr << "[Info] New user attrs - '" << conn.get()->get_current_bytes_in_fifo() << "' - " << id_sequence << std::endl;
         connections_map_tcp.emplace(id_sequence, conn);
-
         asio::async_write(conn->get_tcp_socket(),
                 asio::buffer(create_accept_response(id_sequence)),
                 [this](boost::system::error_code err, std::size_t bt) {
                 }
         );
-
-        id_sequence++;
-        std::cerr << "[INFO] NOWY KLIENT " << conn->get_tcp_socket().remote_endpoint() << "\n";
     }
     else
     {
-        std::cerr << "[ERROR] ACCEPT HANDLER FAILURE " << ec << "\n";
+        std::cerr << "[Error] Accept handler failed '" << ec.message() << "'" << std::endl;
     }
 
     acceptor_tcp.async_accept(
@@ -59,30 +56,61 @@ std::string server::create_raport_part(boost::shared_ptr<connection> conn) //TOD
     return std::move(raport.str());
 }
 
-std::string server::create_data_response(boost::shared_ptr<connection> conn) //TODO nic nie ma
+size_t server::create_data()
 {
-    std::stringstream resp;
-    resp << "DATA";
-    resp << " 0"; //nr
-    resp << " 0"; //ack
-    resp << " " << server_attributes::fifo_size - conn->get_current_bytes_in_fifo();
-    resp << "\n";
-    resp << "hugo";
+    int active_queues_number = 0;
+    size_t mixer_output_size = 0;
 
-    return std::move(resp.str());
+    for (auto& iter : connections_map_udp)
+        active_queues_number += iter.second->is_fifo_active();
+
+    //    std::cerr << "[Info] Active queues number = " << active_queues_number << std::endl;
+
+    if (active_queues_number) //jezeli jakakolwiek kolejka jest aktywna to miksuje
+    {
+        mixer_inputs.clear();
+
+        for (auto& iter : connections_map_udp) //wypelniam strukture danymi
+            if (iter.second->is_fifo_active())
+                mixer_inputs.push_back(iter.second->get_mixer_input());
+
+        std::cerr << "[Info] Mixer - received mixer inputs " << std::endl;
+        std::cerr << "[Info] Mixer - mixing..." << std::endl;
+        mixer_output_size = mixer_output.size();
+        mixer(mixer_inputs.data(), mixer_inputs.size(), mixer_output.data(), &mixer_output_size, server_attributes::tx_interval);
+        std::cerr << "[Info] Mixer - mixed!" << std::endl;
+
+        int i = 0;
+        for (auto& iter : connections_map_udp)
+        {
+            iter.second->set_mixer_intput(mixer_inputs[i++]);
+            if (iter.second->is_fifo_active())
+                iter.second->consume_fifo();
+        }
+    }
+
+    //    std::cerr << "[Info] Mixer created " << mixer_output_size << " bytes" << std::endl;
+    return mixer_output_size;
 }
 
 void server::mixer_timer_handler(const boost::system::error_code &ec)
 {
-    auto iter = std::begin(connections_map_udp);
+    size_t mixed_data_size = create_data();
 
-    while (iter != std::end(connections_map_udp))
+    for (auto& iter : connections_map_udp)
     {
-        std::string response = create_data_response(iter->second);
-        sock_udp.async_send_to(asio::buffer(std::move(response)), iter->first,
+        //        std::cerr << "[Info] Sending data to user '" << iter.first << "'" << std::endl;
+
+        int left_in_fifo = server_attributes::fifo_size - iter.second->get_current_bytes_in_fifo();
+        int ACKTODO = 0; //TODO skąd wziąć?
+        char msg[mixed_data_size + 100];
+        sprintf(msg, "DATA %d %d %d\n", nr_mixer_global, ACKTODO, left_in_fifo);
+        size_t header_size = strlen(msg);
+        memmove(msg + header_size, mixer_output.data(), mixed_data_size);
+
+        sock_udp.async_send_to(asio::buffer(msg, header_size + mixed_data_size), iter.first,
                 [this](boost::system::error_code err, std::size_t bt) {
                 });
-        iter++;
     }
 
     mixer_timer_setup();
@@ -105,17 +133,16 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
                 message << create_raport_part((*tcp_iter).second);
                 tcp_iter->second->clear_history(); //"zapominam" o min/max kolejki z poprzednich raportów
 
-                std::cerr << tcp_iter->second->get_tcp_socket().remote_endpoint() << "\n";
+                //                std::cerr << tcp_iter->second->get_tcp_socket().remote_endpoint() << "\n";
                 tcp_iter++;
             }
             catch (std::exception& e)
             {
-                std::cerr << "[INFO] STRACILISMY USERA (" << tcp_iter->first << ")\n";
+                std::cerr << "[Info] User '" << tcp_iter->first << "' left" << std::endl;
                 int client_id = tcp_iter->first;
                 tcp_iter++;
                 connections_map_tcp.erase(client_id);
             }
-            //            tcp_iter++;
         }
 
         auto udp_iter = std::begin(connections_map_udp);
@@ -123,16 +150,13 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
         while (udp_iter != std::end(connections_map_udp)) //jadę sobie po wszystkich klientach udp
         {
             int client_id = (*udp_iter).second->get_client_id();
-            //            std::cerr << "[INFO] USER: " << client_id << ", TIME: " << (*udp_iter).second->get_time_from_last_udp() << "\n";
+            //            std::cerr << "[Info] USER: " << client_id << ", TIME: " << (*udp_iter).second->get_time_from_last_udp() << "\n";
 
             if (connections_map_tcp.count(client_id) == 0) //jezeli jakiegoś nie ma w mapie tcp (zostal wyrzucony), to tu tez go wyrzucam
-            {
-                std::cerr << "[INFO] WYRZUCAM USERA \n";
                 connections_map_udp.erase(udp_iter);
-            }
             if ((*udp_iter).second->get_time_from_last_udp() > udp_max_interval) //jezeli ostatni udp był później niż [1000] ms temu
             {
-                std::cerr << "[INFO] WYRZUCAM USERA\n";
+                std::cerr << "[Info] User ' " << tcp_iter->first << "' left" << std::endl;
                 int conn = (*udp_iter).second->get_client_id();
 
                 connections_map_udp.erase(udp_iter);
@@ -149,9 +173,8 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
                     }
             );
         }
-
-        tcp_timer_setup();
     }
+    tcp_timer_setup();
 }
 
 void server::tcp_timer_setup()
@@ -168,8 +191,6 @@ void server::mixer_timer_setup()
 
 void server::resolve_client_id_udp(int client_id)
 {
-//    std::cerr << "CLIENT ID " << client_id << "\n";
-
     if (connections_map_udp.count(ep_udp) == 0) //Jeżeli nie ma już takiego klienta w mapie to go dodaje
     {
         auto conn = connections_map_tcp[client_id];
@@ -179,20 +200,20 @@ void server::resolve_client_id_udp(int client_id)
     }
     else //ktoś jeszcze raz wysłał to samo CLIENT id
     {
-        std::cerr << "[ERROR] CLIENT ID BAD\n";
+        std::cerr << "[Error] Client id duplicated - " << client_id << std::endl;
     }
 }
 
-void server::send_ack_udp(int client_id, int nr, int left_bytes_in_fifo)
+void server::send_ack_udp(int client_id, int nr, int free_bytes_in_fifo)
 {
-    std::cerr << "[ACK_SEND] (" << client_id << ") fifo(" << left_bytes_in_fifo << ")\n";
+    //    std::cerr << "[Info] send ack client(" << client_id << ") fifo(" << free_bytes_in_fifo << ")" << std::endl;
     auto conn = connections_map_tcp[client_id];
 
     std::string ack_message;
     ack_message.append("ACK ");
     ack_message.append(std::to_string(nr));
     ack_message.append(" ");
-    ack_message.append(std::to_string(left_bytes_in_fifo));
+    ack_message.append(std::to_string(free_bytes_in_fifo));
     ack_message.append("\n");
 
     sock_udp.async_send_to(asio::buffer(std::move(ack_message)), conn->get_udp_endpoint(),
@@ -200,14 +221,21 @@ void server::send_ack_udp(int client_id, int nr, int left_bytes_in_fifo)
             });
 }
 
-void server::resolve_upload_udp(int client_id, int nr, std::string dane)
+void server::resolve_upload_udp(int client_id, int nr, int bytes_transferred, int header_size)
 {
-    std::cerr << "[UPLOAD] CLIENT_ID(" << client_id << "), NR(" << nr << ")\n";
-    //    std::cerr << "DANE (" << dane << ")\n";
+    //    if (bytes_transferred) std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
     auto conn = connections_map_tcp[client_id];
-    conn->append(dane);
 
-    send_ack_udp(client_id, nr + 1, server_attributes::fifo_size - conn->get_current_bytes_in_fifo());
+    int data_size = bytes_transferred - header_size;
+    if (conn->left_bytes_in_fifo() - data_size >= 0)
+    {
+        conn->append(udp_buf.data(), header_size, data_size);
+        send_ack_udp(client_id, nr + 1, conn->left_bytes_in_fifo());
+    }
+    else
+    {
+        throw 1; //moj klient nie powinien wysylac za duzo danych
+    }
 }
 
 void server::resolve_retransmit_udp(int client_id, int nr)
@@ -226,11 +254,10 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
 {
     if (!error)
     {
-        //        std::cerr << ep_udp << " UDP (" << bt << ")\n";
-        //        std::cerr << "[ " << udp_buf.data() << " ]\n";
+        //        std::cerr << "[Info] Received udp message from '" << ep_udp << "' with (" << bt << ") bytes" << std::endl;
 
-        char* s = udp_buf.c_array();
-        int client_id, nr;
+        const char* s = udp_buf.c_array();
+        int client_id, nr, begin_point;
         std::string dane;
 
         if (udp_parser.matches_client_id(s, client_id))
@@ -239,11 +266,12 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
         if (connections_map_udp.count(ep_udp))
         {
             client_id = connections_map_udp[ep_udp]->get_client_id();
+
             if (udp_parser.matches_keepalive(s))
                 resolve_keepalive_udp(client_id);
 
-            else if (udp_parser.matches_upload(s, nr, dane))
-                resolve_upload_udp(client_id, nr, std::move(dane));
+            else if (udp_parser.matches_upload(s, nr, bt, begin_point))
+                resolve_upload_udp(client_id, nr, bt, begin_point);
 
             else if (udp_parser.matches_retransmit(s, nr))
                 resolve_retransmit_udp(client_id, nr);
@@ -281,6 +309,7 @@ timer_tcp(io_service),
 endpoint_udp(asio::ip::udp::v4(), server_attributes::port),
 sock_udp(io_service, endpoint_udp),
 timer_mixer(io_service),
+mixer_output(MIXER_OUTPUT_BUFFER_SIZE),
 udp_parser()
 {
 }

@@ -42,21 +42,27 @@ bool parse_command_line(int argc, char **argv)
 int main(int argc, char** argv)
 {
     std::ios_base::sync_with_stdio(false); //Przyspieszenie cerr.
-    asio::io_service io_service;
 
-    asio::signal_set signals(io_service, SIGINT);
-    signals.async_wait([&](boost::system::error_code ec, std::size_t sn) {
-        if (!ec)
-        {
-            std::cerr << "Otrzymano sygnał " << sn << " konczenie pracy\n";
-            io_service.stop();
-        }
-    });
     if (parse_command_line(argc, argv))
         return 1;
 
-    client klient(io_service);
-    klient.setup(retransmit_limit, port, server);
-    io_service.run();
-    std::cerr << "Koniec wykonania\n";
+    while (true)
+    {
+        try
+        {
+            asio::io_service io_service;
+            client klient(io_service);
+            klient.setup(retransmit_limit, port, server);
+            io_service.run();
+        }
+        catch (std::exception& ex)
+        {
+            std::cerr << ex.what() << std::endl;
+            //            io_service.stop();
+        }
+        sleep(1);
+    }
+
+    std::cerr << "[Info] Finished" << std::endl;
+    return 0;
 }
