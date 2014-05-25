@@ -12,9 +12,9 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
         std::ostringstream ss;
         ss << &stream_buffer_tcp;
         std::cerr << ss.str();
-        
+
         std::string confirm = ss.str();
-//        std::cerr << "|" << confirm << "|\n";
+        //        std::cerr << "|" << confirm << "|\n";
         int id;
         if (client_parser.matches_client_id(confirm, id)) //jezeli otrzymalem swoj id, to odsylam go po udp jako potwierdzenie
         {
@@ -23,7 +23,6 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
                         if (!ec)
                         {
                             std::cerr << "ODESLANO CLIENTID POPRAWNIE\n";
-                            read_std_in();
                             udp_listening(); //zaczynam czekać na udp od serwera
                             run_keepalive_timer(); //i ustawiam timer do KEEPALIVE
                         }
@@ -44,18 +43,6 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
     }
 }
 
-void client::send_udp_handler(const boost::system::error_code& ec, std::size_t bt)
-{
-    if (!ec)
-    {
-        std::cerr << "UDP SEND SUCCESS\n";
-    }
-    else
-    {
-        std::cerr << "UDP SEND FAIL " << ec << "\n";
-    }
-}
-
 void client::connect_tcp_handler(const boost::system::error_code &ec)
 {
     if (!ec)
@@ -72,47 +59,110 @@ void client::connect_tcp_handler(const boost::system::error_code &ec)
     }
 }
 
-void client::read_std_in()
+void client::send_upload_message(std::size_t bytes_read)
 {
-    asio::async_read(std_input, asio::buffer(stdin_buf),
+    if (bytes_read)
+    {
+        std::string upload_msg;
+        upload_msg.append("UPLOAD ");
+        upload_msg.append(std::to_string(nr_global));
+        upload_msg.append("\n");
+        upload_msg.append(stdin_buf.c_array());
+
+        //        std::cerr << "UPLOAD MSG (" << bytes_read << ") (" << upload_msg << ")";
+        sock_udp.async_send_to(asio::buffer(upload_msg, bytes_read + upload_msg.size()),
+                server_udp_endpoint,
+                [this](boost::system::error_code ec, std::size_t bt) {
+                    if (!ec)
+                    {
+                        //                        std::cerr << "WYSLANO DANE Z WEJSCIA DO SERWERA (" << bt << ")\n";
+                    }
+                    else
+                        std::cerr << "PROBLEM PODCZAS WYSYLANIA DANYCH Z WEJSCIA DO SERWERA " << ec << " " << bt << "\n";
+                });
+    }
+    ++nr_global; //zwiększam licznik datagramow
+}
+
+void client::resolve_data_message(int nr, int ack, int win, std::string& data)
+{
+    win_global = win;
+    //    std::cerr << "|" << data << "|\n";
+    //TODO jeżeli otrzymam 2xDATA bez ani jednego ACK to wysylam raz jeszcze ostatnią wiadomość
+    //TODO jeżeli otrzymam datagram z numerem jakimś tam to też coś zrobić RETRANMISJE
+
+    //wypisyje na wyjście to co odebrałem
+    //                            asio::async_write(std_output, asio::buffer(data),
+    //                                [this](boost::system::error_code& ec, std::size_t bt) {
+    //                                    if (ec)
+    //                                        std::cerr << "PROBLEM Z ZAPISEM NA STDOUT" << ec << "\n";
+    //                                });
+
+    //czytam z wejścia pewną ilość danych odpowiadającą win
+    asio::async_read(std_input, asio::buffer(stdin_buf, win_global),
             [this](const boost::system::error_code& ec, std::size_t bt) {
-                std::cerr << stdin_buf.c_array();
-                if (ec)
-                    std::cerr << "READ STDIN FAILED " << ec << "\n";
+                if (!ec || ec.value() == EOF_ERR_NO)
+                {
+                    //                    std::cerr << this->stdin_buf.c_array() << "\n";
+                    if (bt) std::cerr << "[DATA] WCZYTANO Z WEJSCIA (" << bt << ") bajtow, a chcialem (" << win_global << ")\n";
+                    send_upload_message(bt);
+                }
+                else
+                    std::cerr << "[DATA] READ STDIN ERROR " << ec.value() << "\n";
             }
     );
 }
 
+void client::resolve_ack_message(int ack, int win)
+{
+    std::cerr << "[ACK] MESSAGE (" << ack << ") (" << win << ")\n";
+    ack_global = ack;
+    win_global = win;
+
+    //TODO co z tym ack?
+    asio::async_read(std_input, asio::buffer(stdin_buf, win_global),
+            [this](const boost::system::error_code& ec, std::size_t bt) {
+                if (!ec || ec.value() == EOF_ERR_NO)
+                {
+                    //                    std::cerr << this->stdin_buf.c_array() << "\n";
+                    if (bt)
+                    {
+                        std::cerr << "[ACK] WCZYTANO Z WEJSCIA (" << bt << ") bajtow, a chcialem (" << win_global << ")\n";
+                        send_upload_message(bt);
+                    }
+                }
+                else
+                    std::cerr << "[ACK] READ STDIN ERROR " << ec.value() << "\n";
+            }
+    );
+
+}
+
 void client::udp_listening()
 {
-    //    std::cerr << "START UDP LISTENING\n";
-
     sock_udp.async_receive_from(asio::buffer(udp_receive_buffer), ep_udp,
             [this](const boost::system::error_code& ec, std::size_t bt) {
                 if (!ec)
                 {
                     if (this->ep_udp == this->server_udp_endpoint) //czy na pewno dostaje udp od dobrego serwera
                     {
-//                        std::cerr << "OTRZYMANO UDP\n";
+                        //                        std::cerr << "OTRZYMANO UDP OD SERWERA (" << udp_receive_buffer.c_array() << ")\n";
                         int nr, ack, win;
                         std::string data;
-                        
+
                         if (this->client_parser.matches_data(udp_receive_buffer.c_array(), nr, ack, win, data))
-                        {
-                            std::cerr << "|" << data << "|\n";
-//asynchroniczne pisanie na wyjscie                            
-//                            asio::async_write(std_output, asio::buffer(data),
-//                                [this](boost::system::error_code ec, std::size_t bt) {
-//                                    if (ec)
-//                                        std::cerr << "PROBLEM Z ZAPISEM NA STDOUT" << ec << "\n";
-//                                });
-                        }
+                            resolve_data_message(nr, ack, win, data);
+
+                        else if (this->client_parser.matches_ack(udp_receive_buffer.c_array(), ack, win))
+                            resolve_ack_message(ack, win);
                     }
+
+                    this->udp_receive_buffer.assign(0);
                     udp_listening();
                 }
                 else
                 {
-                    std::cerr << "BLAD PRZY UZYSKIWANIU UDP " << ec << "\n";
+                    std::cerr << "[INFO] BLAD PRZY UZYSKIWANIU UDP " << ec << "\n";
                 }
             });
 }
@@ -121,12 +171,12 @@ void client::connection_timer_handler(const boost::system::error_code& error)
 {
     if (!error)
     {
-//        std::cerr << "CONNECTION TIMER HANDLER\n";
+        //        std::cerr << "CONNECTION TIMER HANDLER\n";
         boost::posix_time::time_duration tm(boost::posix_time::second_clock::local_time() - last_raport_time);
-//        std::cerr << "TM: " << tm.total_milliseconds() << "\n";
+        //        std::cerr << "TM: " << tm.total_milliseconds() << "\n";
         if (tm.total_milliseconds() > max_raport_interval)
         {
-            std::cerr << "BRAK POLACZENIA\n";
+            std::cerr << "[INFO] BRAK POLACZENIA\n";
             sock_tcp.close();
             setup_networking();
         }
@@ -135,7 +185,7 @@ void client::connection_timer_handler(const boost::system::error_code& error)
     }
     else
     {
-        std::cerr << "TIMER HANDLER ERROR\n";
+        std::cerr << "[ERROR] TIMER HANDLER ERROR " << error << " \n";
     }
 }
 
@@ -153,12 +203,12 @@ void client::run_keepalive_timer()
                             run_keepalive_timer();
                         }
                         else
-                            std::cerr << "BLAD PODCZAS WYSYLANIA KEEPALIVE " << ec << " " << bt << "\n";
+                            std::cerr << "[ERROR] BLAD PODCZAS WYSYLANIA KEEPALIVE " << ec << " " << bt << "\n";
                     });
         }
         else
         {
-            std::cerr << "KEEPALIVE TIMER ERROR " << er << "\n";
+            std::cerr << "[ERROR] KEEPALIVE TIMER ERROR " << er << "\n";
         }
     });
 }
@@ -171,6 +221,10 @@ void client::run_connection_timer()
 
 void client::setup_networking()
 {
+    nr_global = 0; //ustawienia nie sieciowe co prawda, ale tez potrzebne   
+    ack_global = 0;
+    win_global = 0;
+
     last_raport_time = boost::posix_time::second_clock::local_time();
 
     asio::ip::tcp::resolver::query query_tcp(server, port);
@@ -184,6 +238,7 @@ void client::setup_networking()
 
 client::client(asio::io_service& io_service) :
 KEEPALIVE("KEEPALIVE\n"),
+EOF_ERR_NO(2),
 resolver_tcp(io_service),
 sock_tcp(io_service),
 connect_timer(io_service, boost::posix_time::seconds(connect_interval)),

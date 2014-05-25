@@ -34,10 +34,10 @@ bool parser::matches_client_id(std::string& input_string, int& client_id)
     return false;
 }
 
-bool parser::matches_ack(std::string& input_string, int& ack, int& win)
+bool parser::matches_ack(char* input_string, int& ack, int& win)
 {
     boost::cmatch groups;
-    if (boost::regex_match(input_string.c_str(), groups, pattern_ack))
+    if (boost::regex_match(input_string, groups, pattern_ack))
     {
         ack = std::atoi(groups[1].first);
         win = std::atoi(groups[2].first);

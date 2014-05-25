@@ -25,6 +25,13 @@ private:
     int connect_interval = 500; //czas dla timera (w milisekundach) do ponownego łączenia
     int keepalive_interval = 100; //odstęp czasu dla timera do wysyłania KEEPALIVE
     const std::string KEEPALIVE;
+    const int EOF_ERR_NO;
+    
+    //wartości do pamiętania
+    int nr_global;
+    int ack_global;
+    int win_global;
+    
     /////////////////////////////////////////////////////////////////
     //TCP
     asio::ip::tcp::resolver resolver_tcp;
@@ -48,8 +55,8 @@ private:
     boost::array<char, 1 << 16 > stdin_buf;
     /////////////////////////////////////////////////////
     boost::posix_time::ptime last_raport_time; //czas ostatniego raportu
-
     parser client_parser;
+    
     /**
      * Obsługa zdarzenia odbioru wiadomości TCP.
      * 
@@ -66,13 +73,6 @@ private:
     void connect_tcp_handler(const boost::system::error_code &ec);
 
     /**
-     * Obsługa zdarzenia wysłania 
-     * @param 
-     * @param 
-     */
-    void send_udp_handler(const boost::system::error_code&, std::size_t);
-
-    /**
      * Obsługa zdarzenia łączenia z serwerem po UDP.
      * 
      * @param ec error code
@@ -80,9 +80,29 @@ private:
     void receive_udp_handler(const boost::system::error_code &ec);
 
     /**
-     * Rozpoczyna nasłuchiwanie ze standardowego wejścia.
+     * Tworzy i wysyła wiadomość UPLOAD do serwera.
+     * 
+     * @param liczba danych otrzymanych z wejścia w bajtach
      */
-    void read_std_in();
+    void send_upload_message(std::size_t);
+    
+    /**
+     * Obsługa zdarzenia otrzymania wiadomości DATA od serwera.
+     * 
+     * @param nr
+     * @param ack
+     * @param win
+     * @param dane
+     */
+    void resolve_data_message(int, int, int, std::string&);
+
+    /**
+     * Obsługa zdarzenia otrzymania wiadomości ACK od serwera.
+     * 
+     * @param ack
+     * @param win
+     */
+    void resolve_ack_message(int, int);
     
     /**
      * Nasłuchuje na komunikaty udp i odpowiednio nimi zarządza.

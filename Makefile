@@ -4,6 +4,7 @@ K=klient
 S=serwer
 C=connection
 SC=server
+SA=server_attributes
 KC=client
 M=mixer
 P=parser
@@ -17,8 +18,8 @@ all: $(S) $(K)
 $(K): $(K)$(CPP) $(KC)$(O) $(P)$(O)
 	g++ $(K)$(CPP) $(KC)$(O) $(P)$(O) -o $(K) $(MFLAGS)
 
-$(S): $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O) $(P)$(O)
-	g++ $(S)$(CPP) $(M)$(O) $(C)$(O) $(SC)$(O) -o $(S) $(P)$(O) $(MFLAGS)
+$(S): $(S)$(CPP) $(SA)$(O) $(M)$(O) $(C)$(O) $(SC)$(O) $(P)$(O)
+	g++ $(S)$(CPP) $(SA)$(O) $(M)$(O) $(C)$(O) $(SC)$(O) $(P)$(O) -o $(S) $(MFLAGS)
 
 $(KC)$(O): $(KC)$(CPP) $(KC)$(H)
 	g++ $(DFLAGS) $(KC)$(CPP) -o $(KC)$(O)
@@ -34,7 +35,11 @@ $(C)$(O): $(C)$(CPP) $(C)$(H)
 
 $(P)$(O): $(P)$(CPP) $(P)$(H)
 	g++ $(DFLAGS) $(P)$(CPP) -o $(P)$(O)
+	
+$(SA)$(O): $(SA)$(CPP) $(SA)$(H)
+	g++ $(DFLAGS) $(SA)$(CPP) -o $(SA)$(O)
 
 clean:
-	rm -f $(K) $(S) $(KC)$(O) $(SC)$(O) $(M)$(O) $(C)$(O) $(P)$(O)
+	rm -f $(K) $(S)
+	rm -f *.o
 	rm -f *~

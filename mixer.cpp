@@ -10,7 +10,7 @@ void mixer(struct mixer_input* inputs, size_t n, void* output_buf,
         ) {
     fprintf(stderr, "MIXER\n");
     unsigned long output_buffer_size = tx_interval_ms * MAGIC_NUMBER / 2;
-
+    
     for (size_t i = 0; i < output_buffer_size; i++) {
         int sum = 0;
         for (size_t j = 0; j < n; j++) {

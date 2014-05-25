@@ -45,7 +45,7 @@ public:
      * @param win
      * @return true jezeli pasuje, false w przeciwnym wypadku
      */
-    bool matches_ack(std::string&, int&, int&);
+    bool matches_ack(char*, int&, int&);
 
     /**
      * Sprawdza, czy zadany string pasuje do:

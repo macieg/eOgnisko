@@ -12,16 +12,6 @@ namespace asio = boost::asio;
 
 class server {
 private:
-    /**
-     * Stałe z treści zadania.
-     */
-    int port;
-    int fifo_size;
-    int fifo_low_watermark;
-    int fifo_high_watermark;
-    int buf_len;
-    int tx_interval;
-
     ///////////////////////////////////////////////////////////////////
     ///TCP
     asio::ip::tcp::endpoint endpoint_tcp;
@@ -40,9 +30,9 @@ private:
     int id_sequence = 1; //Pomocnicza sekwencja do tworzenia id klientów.
 
     int raport_timer_interval = 1; //czas dla timera (w sekundach) do rozsyłania raportów
-    
-    int udp_max_interval = 1000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta.
 
+    int udp_max_interval = 10000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta. //TODO zmienic na 1000
+    
     parser udp_parser;
     /**
      * Mapuje ID klienta przyznane przez serwer na połączenie z nim związane
@@ -61,12 +51,12 @@ private:
     void accept_handler(const boost::system::error_code&);
 
     /**
-     * Metoda budzona co TX interval do wysyłania danych wyjściowych
+     * Metoda budzona co TX interval do wysyłania danych wyjściowych.
      * 
      * @param error code
      */
     void mixer_timer_handler(const boost::system::error_code&);
-    
+
     /**
      * Metoda budzona co TIMER_INTERVAL, służąca do rozsyłania raportów do klientów.
      * 
@@ -94,13 +84,14 @@ private:
      * @return fragment raportu
      */
     std::string create_raport_part(boost::shared_ptr<connection>);
-    
+
     /**
      * Buduje odpowiedź ze zmiksowanymi danymi.
      * 
+     * @param połączenie klient<->serwer
      * @return wiadomość ze zmiksowanymi danymi
      */
-    std::string create_data_response();
+    std::string create_data_response(boost::shared_ptr<connection>);
 
     /**
      * Obsługuje wiadomość typu CLIENT_ID.
@@ -108,6 +99,15 @@ private:
      * @param client_id
      */
     void resolve_client_id_udp(int);
+
+    /**
+     * Wysyła wiadomość potwierdzającą odebranie danych.
+     * 
+     * @param id klienta
+     * @param nr
+     * @param pozostala liczba miejsc (bajtow) w fifo
+     */
+    void send_ack_udp(int, int, int);
     
     /**
      * Obsługuje wiadomość typu UPLOAD.
@@ -116,8 +116,8 @@ private:
      * @param nr
      * @param dane
      */
-    void resolve_upload_udp(int, int, std::string&);
-    
+    void resolve_upload_udp(int, int, std::string);
+
     /**
      * Obsługuje wiadomość typu RETRANSMIT.
      * 
@@ -125,14 +125,14 @@ private:
      * @param nr
      */
     void resolve_retransmit_udp(int, int);
-    
+
     /**
      * Obsługuje wiadomość typu KEEPALIVE.
      * 
      * @param client_id
      */
     void resolve_keepalive_udp(int);
-    
+
     /**
      * Obsługuje otrzymanie wiadomości UDP. 
      * 
@@ -145,7 +145,7 @@ private:
      * Ustawia timer do wysyłania raportów.
      */
     void tcp_timer_setup();
-    
+
     /**
      * Ustawia timer do wysyłania zmiksowanych danych.
      */
@@ -163,20 +163,14 @@ public:
      * na którym będzie nasłuchiwał TCP i UDP.
      * 
      * @param io_service
-     * @param nr portu
      */
-    server(asio::io_service&, int);
+    server(asio::io_service&);
 
     /**
      * Metoda służąca do ustawienia startowych opcji w programie.
      * 
-     * @params parametry z treści
      */
-    void setup(int fifo_size,
-            int fifo_low_watermark,
-            int fifo_high_watermark,
-            int buf_len,
-            int tx_interval);
+    void setup();
 
 };
 
