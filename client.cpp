@@ -11,6 +11,7 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
         ss << &stream_buffer_tcp;
         std::string message = ss.str();
 
+        std::cerr << "[Info] " << ss.str() << std::endl;
         int id;
         if (client_parser.matches_client_id(message, id)) //jezeli otrzymalem swoj id, to odsylam go po udp jako potwierdzenie
         {
@@ -124,6 +125,19 @@ void client::resolve_ack_message(int ack, int win)
     win_global = win;
 
     //TODO co z tym ack?
+
+    asio::async_read(std_input, asio::buffer(stdin_buf, win_global),
+            [this, win] (const boost::system::error_code& ec, std::size_t bt) {//TODO
+                if (!ec || ec.value() == EOF_ERR_NO)
+                {
+                    //                    std::cerr << this->stdin_buf.c_array() << std::endl;
+                    //                    if (bt) std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                    send_upload_message(bt);
+                }
+                else
+                    std::cerr << "[Info] Problem with reading from stdin, ec = '" << ec.message() << "'" << std::endl;
+            }
+    );
 }
 
 void client::udp_listening()
@@ -205,7 +219,7 @@ void client::update_last_server_msg()
 
 void client::setup_networking()
 {
-//    std::cerr << "[Info] Setup networking" << std::endl;
+    //    std::cerr << "[Info] Setup networking" << std::endl;
     my_nr_global = 0; //ustawienia nie sieciowe co prawda, ale tez potrzebne   
     //    ack_global = 0;
     win_global = 0;
@@ -235,7 +249,7 @@ client_parser()
 
 void client::setup(int retransmit_limit, std::string port, std::string server)
 {
-//    std::cerr << "[Info] Setup" << std::endl;
+    //    std::cerr << "[Info] Setup" << std::endl;
     this->retransmit_limit = retransmit_limit;
     this->port = std::move(port);
     this->server = std::move(server);

@@ -19,6 +19,7 @@ void server::accept_handler(const boost::system::error_code &ec)
                 [this](boost::system::error_code err, std::size_t bt) {
                 }
         );
+        id_sequence++;
     }
     else
     {
@@ -40,7 +41,7 @@ std::string server::create_accept_response(int client_id)
     return std::move(response);
 }
 
-std::string server::create_raport_part(boost::shared_ptr<connection> conn) //TODO nic nie ma tu
+std::string server::create_raport_part(boost::shared_ptr<connection> conn)
 {
     std::stringstream raport;
     raport << conn->get_tcp_socket().remote_endpoint() << " FIFO: ";
@@ -83,9 +84,11 @@ size_t server::create_data()
         int i = 0;
         for (auto& iter : connections_map_udp)
         {
-            iter.second->set_mixer_intput(mixer_inputs[i++]);
             if (iter.second->is_fifo_active())
+            {
+                iter.second->set_mixer_intput(mixer_inputs[i++]);
                 iter.second->consume_fifo();
+            }
         }
     }
 
@@ -95,6 +98,7 @@ size_t server::create_data()
 
 void server::mixer_timer_handler(const boost::system::error_code &ec)
 {
+    mixer_timer_setup();
     size_t mixed_data_size = create_data();
 
     for (auto& iter : connections_map_udp)
@@ -103,17 +107,16 @@ void server::mixer_timer_handler(const boost::system::error_code &ec)
 
         int left_in_fifo = server_attributes::fifo_size - iter.second->get_current_bytes_in_fifo();
         int ACKTODO = 0; //TODO skąd wziąć?
-        char msg[mixed_data_size + 100];
+        char* msg = new char[mixed_data_size + 100];
         sprintf(msg, "DATA %d %d %d\n", nr_mixer_global, ACKTODO, left_in_fifo);
         size_t header_size = strlen(msg);
         memmove(msg + header_size, mixer_output.data(), mixed_data_size);
 
         sock_udp.async_send_to(asio::buffer(msg, header_size + mixed_data_size), iter.first,
-                [this](boost::system::error_code err, std::size_t bt) {
+                [this, msg](boost::system::error_code err, std::size_t bt) {
+                    delete msg;
                 });
     }
-
-    mixer_timer_setup();
 }
 
 void server::tcp_timer_handler(const boost::system::error_code& error)
@@ -223,7 +226,7 @@ void server::send_ack_udp(int client_id, int nr, int free_bytes_in_fifo)
 
 void server::resolve_upload_udp(int client_id, int nr, int bytes_transferred, int header_size)
 {
-    //    if (bytes_transferred) std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
+    if (bytes_transferred) std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
     auto conn = connections_map_tcp[client_id];
 
     int data_size = bytes_transferred - header_size;

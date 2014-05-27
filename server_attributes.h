@@ -6,12 +6,12 @@ class server_attributes {
 private:
     server_attributes();
 public:
-    static int port;
-    static int fifo_size;
-    static int fifo_low_watermark;
-    static int fifo_high_watermark;
-    static int buf_len;
-    static int tx_interval;
+    static unsigned port;
+    static unsigned fifo_size;
+    static unsigned fifo_low_watermark;
+    static unsigned fifo_high_watermark;
+    static unsigned buf_len;
+    static unsigned tx_interval;
 };
 
 #endif

@@ -11,12 +11,12 @@ bool parse_command_line(int argc, char** argv)
 
     description.add_options()
             ("help,h", "Display this help message")
-            ("port,p", po::value<int>(&server_attributes::port), "Port number")
-            ("fifosize,F", po::value<int>(&server_attributes::fifo_size), "Fifo size")
-            ("fifolowwatermark,L", po::value<int>(&server_attributes::fifo_low_watermark), "Fifo low watermark")
-            ("fifohighwatermark,H", po::value<int>(&server_attributes::fifo_high_watermark), "Fifo high watermark")
-            ("buflen,X", po::value<int>(&server_attributes::buf_len), "Buffer length")
-            ("txinterval,i", po::value<int>(&server_attributes::tx_interval), "Tx interval");
+            ("port,p", po::value<unsigned>(&server_attributes::port), "Port number")
+            ("fifosize,F", po::value<unsigned>(&server_attributes::fifo_size), "Fifo size")
+            ("fifolowwatermark,L", po::value<unsigned>(&server_attributes::fifo_low_watermark), "Fifo low watermark")
+            ("fifohighwatermark,H", po::value<unsigned>(&server_attributes::fifo_high_watermark), "Fifo high watermark")
+            ("buflen,X", po::value<unsigned>(&server_attributes::buf_len), "Buffer length")
+            ("txinterval,i", po::value<unsigned>(&server_attributes::tx_interval), "Tx interval");
 
     po::variables_map vm;
     try

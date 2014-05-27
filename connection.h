@@ -20,9 +20,9 @@ class connection {
     
 private:
     int client_id;
-    int current_bytes_in_fifo;
-    int min_bytes_in_fifo;
-    int max_bytes_in_fifo;
+    unsigned current_bytes_in_fifo;
+    unsigned min_bytes_in_fifo;
+    unsigned max_bytes_in_fifo;
     boost::posix_time::ptime last_udp;
     boost::asio::ip::tcp::socket sock;
     asio::ip::udp::endpoint ep_udp;

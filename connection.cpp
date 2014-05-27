@@ -89,11 +89,11 @@ bool connection::is_fifo_active()
 
 void connection::consume_fifo()
 {
-    int n = mixer_input.consumed;
-    if (n) std::cerr << "[Info] user(" << client_id << ") fifo_state1 (" << n << "/ " << current_bytes_in_fifo << ")" << std::endl;
+    size_t n = mixer_input.consumed;
+//    if (n) std::cerr << "[Info] user(" << client_id << ") fifo_state1 (" << n << "/ " << current_bytes_in_fifo << ")" << std::endl;
     memmove(fifo, fifo+n, current_bytes_in_fifo - n);
     current_bytes_in_fifo -= n;
-    std::cerr << "[Info] user(" << client_id << ") fifo_state2 (" << current_bytes_in_fifo << ")" << std::endl;
+//    std::cerr << "[Info] user(" << client_id << ") fifo_state2 (" << current_bytes_in_fifo << ")" << std::endl;
     if (current_bytes_in_fifo <= server_attributes::fifo_low_watermark)
         fifo_state = FIFO_STATE::FILLING;
 }
