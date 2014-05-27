@@ -25,14 +25,21 @@ private:
     int max_raport_interval = 1000; //maksymalna tolerancja dla odstepu miedzy raportami
     int connect_interval = 500; //czas dla timera (w milisekundach) do ponownego łączenia
     int keepalive_interval = 100; //odstęp czasu dla timera do wysyłania KEEPALIVE
+    int nr_max_seen = 0;
     const std::string KEEPALIVE;
     static const char NEWLINE_SIGN = '\n';
     static const int EOF_ERR_NO = 2; //boostowy error number
+    static const int BUF_SIZE = 1 << 16;
+    static const unsigned RETRANSMIT_MAX = 100;
 
     //wartości do pamiętania
     int my_nr_global; //numer wczytanego datagramu
     int server_nr_global; //number wczytanego datagramu serwera
     int win_global; //liczba wolnych bajtów w kolejce
+
+    std::string last_sended_msg;
+    int data_counter = 0; //pomocnicza zmienna do sprawdzania, czy nie otzymalismy komunikatow data bez wczesniejszego ack
+
 
     /////////////////////////////////////////////////////////////////
     //TCP
@@ -48,14 +55,13 @@ private:
     asio::ip::udp::endpoint ep_udp;
     asio::ip::udp::endpoint server_udp_endpoint;
     boost::asio::streambuf stream_buffer_udp;
-    boost::array<char, 1 << 16 > udp_receive_buffer;
+    boost::array<char, BUF_SIZE> udp_receive_buffer;
     asio::steady_timer keepalive_timer; //timer do wysyłania keepalive
     ////////////////////////////////////////////////////////////////////
     //STDIN STDOUT
     asio::posix::stream_descriptor std_input;
     asio::posix::stream_descriptor std_output;
-    boost::array<char, 1 << 16 > stdin_buf;
-    ;
+    boost::array<char, BUF_SIZE> stdin_buf;
     /////////////////////////////////////////////////////
     std::chrono::system_clock::time_point last_server_msg; //czas ostatniej wiadomości od serwera
     parser client_parser;
@@ -121,7 +127,7 @@ private:
      * Ustawia i uruchamia timer sprawdzający stan połączenia.
      */
     void run_connection_timer();
-    
+
     /**
      * Uaktualnia czas otrzymania ostatniej wiadomości od serwera.
      */

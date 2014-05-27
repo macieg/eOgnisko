@@ -9,10 +9,10 @@ void server::accept_handler(const boost::system::error_code &ec)
 {
     if (!ec)
     {
-        std::cerr << "[Info] New user - '" << sock_tcp.remote_endpoint() << "' - " << id_sequence << std::endl;
+        std::cerr << "[Info] New user - '" << sock_tcp.remote_endpoint() << "', id - " << id_sequence << std::endl;
 
         boost::shared_ptr<connection> conn(new connection(id_sequence, std::move(sock_tcp)));
-        std::cerr << "[Info] New user attrs - '" << conn.get()->get_current_bytes_in_fifo() << "' - " << id_sequence << std::endl;
+//        std::cerr << "[Info] New user attrs - '" << conn.get()->get_current_bytes_in_fifo() << "' - " << id_sequence << std::endl;
         connections_map_tcp.emplace(id_sequence, conn);
         asio::async_write(conn->get_tcp_socket(),
                 asio::buffer(create_accept_response(id_sequence)),
@@ -75,11 +75,11 @@ size_t server::create_data()
             if (iter.second->is_fifo_active())
                 mixer_inputs.push_back(iter.second->get_mixer_input());
 
-//        std::cerr << "[Info] Mixer - received mixer inputs " << std::endl;
-//        std::cerr << "[Info] Mixer - mixing..." << std::endl;
+        //        std::cerr << "[Info] Mixer - received mixer inputs " << std::endl;
+        //        std::cerr << "[Info] Mixer - mixing..." << std::endl;
         mixer_output_size = mixer_output.size();
         mixer(mixer_inputs.data(), mixer_inputs.size(), mixer_output.data(), &mixer_output_size, server_attributes::tx_interval);
-//        std::cerr << "[Info] Mixer - mixed!" << std::endl;
+        //        std::cerr << "[Info] Mixer - mixed!" << std::endl;
 
         int i = 0;
         for (auto& iter : connections_map_udp)
@@ -101,14 +101,19 @@ void server::mixer_timer_handler(const boost::system::error_code &ec)
     mixer_timer_setup();
     size_t mixed_data_size = create_data();
 
+    std::vector<char> v(mixer_output.data(), mixer_output.data() + mixed_data_size);
+    mixer_buf.push_back(std::move(v));
+
+    if (mixer_buf.size() > server_attributes::buf_len) //jezeli przekrocze dozwolony rozmiar bufora to wywalam pierwszy
+        mixer_buf.pop_front();
+
     for (auto& iter : connections_map_udp)
     {
         //        std::cerr << "[Info] Sending data to user '" << iter.first << "'" << std::endl;
 
         int left_in_fifo = server_attributes::fifo_size - iter.second->get_current_bytes_in_fifo();
-        int ACKTODO = 0; //TODO skąd wziąć?
         char* msg = new char[mixed_data_size + 100];
-        sprintf(msg, "DATA %d %d %d\n", nr_mixer_global, ACKTODO, left_in_fifo);
+        sprintf(msg, "DATA %d %d %d\n", nr_mixer_global, iter.second->get_datagram_number() + 1, left_in_fifo);
         size_t header_size = strlen(msg);
         memmove(msg + header_size, mixer_output.data(), mixed_data_size);
 
@@ -117,6 +122,7 @@ void server::mixer_timer_handler(const boost::system::error_code &ec)
                     delete msg;
                 });
     }
+    nr_mixer_global++;
 }
 
 void server::tcp_timer_handler(const boost::system::error_code& error)
@@ -224,27 +230,53 @@ void server::send_ack_udp(int client_id, int nr, int free_bytes_in_fifo)
             });
 }
 
-void server::resolve_upload_udp(int client_id, int nr, int bytes_transferred, int header_size)
+void server::resolve_upload_udp(int client_id, unsigned nr, int bytes_transferred, int header_size)
 {
-//    if (bytes_transferred) std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
-    auto conn = connections_map_tcp[client_id];
+    //    if (bytes_transferred) std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
+    auto& conn = connections_map_tcp[client_id];
 
-    int data_size = bytes_transferred - header_size;
-    if (conn->left_bytes_in_fifo() - data_size >= 0)
+    if (nr == conn->get_datagram_number() + 1) //jezeli otrzymany numer nie jest mniejszy od aktualnego
     {
-        conn->append(udp_buf.data(), header_size, data_size);
-        send_ack_udp(client_id, nr + 1, conn->left_bytes_in_fifo());
-    }
-    else
-    {
-//        throw 1; //moj klient nie powinien wysylac za duzo danych
+        conn->set_datagram_number(nr);
+        int data_size = bytes_transferred - header_size;
+        if (conn->left_bytes_in_fifo() - data_size >= 0)
+        {
+            conn->append(udp_buf.data(), header_size, data_size);
+            send_ack_udp(client_id, nr + 1, conn->left_bytes_in_fifo());
+        }
+        else
+        {
+            auto endp = conn->get_udp_endpoint();
+            connections_map_udp.erase(endp);
+            connections_map_tcp.erase(client_id);
+        }
     }
 }
 
 void server::resolve_retransmit_udp(int client_id, int nr)
 {
-    std::cerr << "[RETRANSMIT]\n";
-    //TODO
+    std::cerr << "[Info] Received retransmit request, client_id = " << client_id << ", nr = " << nr << std::endl;
+
+    if (connections_map_tcp.count(client_id) && nr_mixer_global >= nr)
+    {
+        auto conn = connections_map_tcp[client_id];
+        size_t i = std::max(0, (int)(mixer_buf.size() - nr_mixer_global + nr));
+
+        for (; i < mixer_buf.size(); i++)
+        {
+            int left_in_fifo = server_attributes::fifo_size - conn->get_current_bytes_in_fifo();
+            char* msg = new char[mixer_buf[i].size() + 100];
+            sprintf(msg, "DATA %d %d %d\n", (int) (nr_mixer_global - mixer_buf.size() + i), conn->get_datagram_number() + 1, (left_in_fifo));
+            size_t header_size = strlen(msg);
+            memmove(msg + header_size, mixer_buf[i].data(), mixer_buf[i].size());
+
+            sock_udp.async_send_to(asio::buffer(msg, header_size + mixer_buf[i].size()), conn->get_udp_endpoint(),
+                    [this, msg](boost::system::error_code err, std::size_t bt) {
+                        delete msg;
+                    });
+        }
+    }
+
 }
 
 void server::resolve_keepalive_udp(int client_id)

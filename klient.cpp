@@ -57,8 +57,7 @@ int main(int argc, char** argv)
         }
         catch (std::exception& ex)
         {
-            std::cerr << ex.what() << std::endl;
-            //            io_service.stop();
+//            std::cerr << ex.what() << std::endl;
         }
         sleep(1);
     }

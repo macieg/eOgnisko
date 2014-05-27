@@ -5,6 +5,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/regex.hpp>
 #include <map>
+#include <deque>
 #include "connection.h"
 #include "parser.h"
 #include "mixer.h"
@@ -31,7 +32,7 @@ private:
     static const int raport_timer_interval = 1; //czas dla timera (w sekundach) do rozsyłania raportów
     static const int udp_max_interval = 10000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta. //TODO zmienic na 1000
     const float magic_number = 176.4f; // magiczna liczba do tworzenia rozmiaru bufora z miksera
-    static const int MIXER_OUTPUT_BUFFER_SIZE = (1<<16) + 10;
+    static const int MIXER_OUTPUT_BUFFER_SIZE = (1 << 16) + 10;
 
     int id_sequence = 1; //Pomocnicza sekwencja do tworzenia id klientów.
     int nr_mixer_global = 0; //Numer ostatnio wygenerowanego datagramu przez mixer.
@@ -40,6 +41,8 @@ private:
 
     std::vector<char> mixer_output; //dane wyjsciowe z miksera
 
+    std::deque<std::vector<char> > mixer_buf;
+    
     parser udp_parser;
     /**
      * Mapuje ID klienta przyznane przez serwer na połączenie z nim związane
@@ -123,7 +126,7 @@ private:
      * @param bytes transferred
      * @param header size
      */
-    void resolve_upload_udp(int, int, int, int);
+    void resolve_upload_udp(int, unsigned, int, int);
 
     /**
      * Obsługuje wiadomość typu RETRANSMIT.

@@ -27,7 +27,7 @@ private:
     boost::asio::ip::tcp::socket sock;
     asio::ip::udp::endpoint ep_udp;
     char* fifo;
-    int nr_global;
+    unsigned datagram_number;
     int ack_global;
     FIFO_STATE fifo_state;
     struct mixer_input mixer_input;
@@ -150,6 +150,21 @@ public:
      * @return ilość wolnego miejsca w kolejce w bajtach
      */
     int left_bytes_in_fifo();
+
+    /**
+     * Zwraca numer ostatnio odebranego datagramu.
+     * 
+     * @return 
+     */
+    unsigned get_datagram_number() const;
+
+    /**
+     * Ustawia numer ostatnio odebranego datagramu.
+     * 
+     * @param datagram_number
+     */
+    void set_datagram_number(unsigned datagram_number);
+
 
 };
 
