@@ -2,7 +2,7 @@
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/timer.hpp>
+#include <chrono>
 #include "server.h"
 
 void server::accept_handler(const boost::system::error_code &ec)
@@ -75,11 +75,11 @@ size_t server::create_data()
             if (iter.second->is_fifo_active())
                 mixer_inputs.push_back(iter.second->get_mixer_input());
 
-        std::cerr << "[Info] Mixer - received mixer inputs " << std::endl;
-        std::cerr << "[Info] Mixer - mixing..." << std::endl;
+//        std::cerr << "[Info] Mixer - received mixer inputs " << std::endl;
+//        std::cerr << "[Info] Mixer - mixing..." << std::endl;
         mixer_output_size = mixer_output.size();
         mixer(mixer_inputs.data(), mixer_inputs.size(), mixer_output.data(), &mixer_output_size, server_attributes::tx_interval);
-        std::cerr << "[Info] Mixer - mixed!" << std::endl;
+//        std::cerr << "[Info] Mixer - mixed!" << std::endl;
 
         int i = 0;
         for (auto& iter : connections_map_udp)
@@ -159,7 +159,7 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
                 connections_map_udp.erase(udp_iter);
             if ((*udp_iter).second->get_time_from_last_udp() > udp_max_interval) //jezeli ostatni udp był później niż [1000] ms temu
             {
-                std::cerr << "[Info] User ' " << tcp_iter->first << "' left" << std::endl;
+                std::cerr << "[Info] User '" << tcp_iter->first << "' left" << std::endl;
                 int conn = (*udp_iter).second->get_client_id();
 
                 connections_map_udp.erase(udp_iter);
@@ -188,7 +188,7 @@ void server::tcp_timer_setup()
 
 void server::mixer_timer_setup()
 {
-    timer_mixer.expires_from_now(boost::posix_time::milliseconds(server_attributes::tx_interval));
+    timer_mixer.expires_at(timer_mixer.expires_at() + std::chrono::milliseconds(server_attributes::tx_interval));
     timer_mixer.async_wait(boost::bind(&server::mixer_timer_handler, this, asio::placeholders::error));
 }
 
@@ -226,7 +226,7 @@ void server::send_ack_udp(int client_id, int nr, int free_bytes_in_fifo)
 
 void server::resolve_upload_udp(int client_id, int nr, int bytes_transferred, int header_size)
 {
-    if (bytes_transferred) std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
+//    if (bytes_transferred) std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
     auto conn = connections_map_tcp[client_id];
 
     int data_size = bytes_transferred - header_size;
@@ -237,7 +237,7 @@ void server::resolve_upload_udp(int client_id, int nr, int bytes_transferred, in
     }
     else
     {
-        throw 1; //moj klient nie powinien wysylac za duzo danych
+//        throw 1; //moj klient nie powinien wysylac za duzo danych
     }
 }
 
@@ -320,7 +320,8 @@ udp_parser()
 void server::setup()
 {
     tcp_timer_setup();
-    mixer_timer_setup();
+    timer_mixer.expires_from_now(std::chrono::milliseconds(server_attributes::tx_interval));
+    timer_mixer.async_wait(boost::bind(&server::mixer_timer_handler, this, asio::placeholders::error));
     network_setup();
 }
 

@@ -11,7 +11,7 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
         ss << &stream_buffer_tcp;
         std::string message = ss.str();
 
-        std::cerr << "[Info] " << ss.str() << std::endl;
+//        std::cerr << "[Info] " << ss.str() << std::endl;
         int id;
         if (client_parser.matches_client_id(message, id)) //jezeli otrzymalem swoj id, to odsylam go po udp jako potwierdzenie
         {
@@ -125,19 +125,22 @@ void client::resolve_ack_message(int ack, int win)
     win_global = win;
 
     //TODO co z tym ack?
-
-    asio::async_read(std_input, asio::buffer(stdin_buf, win_global),
-            [this, win] (const boost::system::error_code& ec, std::size_t bt) {//TODO
-                if (!ec || ec.value() == EOF_ERR_NO)
-                {
-                    //                    std::cerr << this->stdin_buf.c_array() << std::endl;
-                    //                    if (bt) std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
-                    send_upload_message(bt);
+    
+    if (win) //jezeli jest sens cokolwiek wysyłać
+    {
+        asio::async_read(std_input, asio::buffer(stdin_buf, win_global),
+                [this, win] (const boost::system::error_code& ec, std::size_t bt) {
+                    if (!ec || ec.value() == EOF_ERR_NO)
+                    {
+                        //                    std::cerr << this->stdin_buf.c_array() << std::endl;
+                        //                    if (bt) std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                        send_upload_message(bt);
+                    }
+                    else
+                        std::cerr << "[Info] Problem with reading from stdin, ec = '" << ec.message() << "'" << std::endl;
                 }
-                else
-                    std::cerr << "[Info] Problem with reading from stdin, ec = '" << ec.message() << "'" << std::endl;
-            }
-    );
+        );
+    }
 }
 
 void client::udp_listening()

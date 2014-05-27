@@ -2,7 +2,7 @@
 #ifndef SERVER_H
 #define	SERVER_H
 #include <boost/asio.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/regex.hpp>
 #include <map>
 #include "connection.h"
@@ -25,7 +25,7 @@ private:
     boost::asio::streambuf stream_buffer;
     boost::array<char, 1 << 16 > udp_buf;
     asio::ip::udp::endpoint ep_udp;
-    asio::deadline_timer timer_mixer;
+    asio::steady_timer timer_mixer;
     //////////////////////////////////////////////////////////////////
 
     static const int raport_timer_interval = 1; //czas dla timera (w sekundach) do rozsyłania raportów
