@@ -1,4 +1,4 @@
-MFLAGS=-std=c++11 -Wall -lboost_system -lboost_program_options -lpthread -lboost_regex
+MFLAGS=-std=c++11 -Wall -lboost_system -lboost_program_options -lpthread -lboost_regex -g
 DFLAGS=-std=c++11 -Wall -c
 K=klient
 S=serwer

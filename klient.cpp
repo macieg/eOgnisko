@@ -57,7 +57,7 @@ int main(int argc, char** argv)
         }
         catch (std::exception& ex)
         {
-//            std::cerr << ex.what() << std::endl;
+            std::cerr << "[Error] Exception - " <<  ex.what() << std::endl;
         }
         sleep(1);
     }

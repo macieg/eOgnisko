@@ -28,7 +28,6 @@ private:
     asio::ip::udp::endpoint ep_udp;
     char* fifo;
     unsigned datagram_number;
-    int ack_global;
     FIFO_STATE fifo_state;
     struct mixer_input mixer_input;
 

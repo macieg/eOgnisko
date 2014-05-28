@@ -30,7 +30,7 @@ private:
     //////////////////////////////////////////////////////////////////
 
     static const int raport_timer_interval = 1; //czas dla timera (w sekundach) do rozsyłania raportów
-    static const int udp_max_interval = 10000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta. //TODO zmienic na 1000
+    static const int udp_max_interval = 1000; //Tolerancja odstępu czasu między datagramami otrzymanymi od danego klienta.
     const float magic_number = 176.4f; // magiczna liczba do tworzenia rozmiaru bufora z miksera
     static const int MIXER_OUTPUT_BUFFER_SIZE = (1 << 16) + 10;
 

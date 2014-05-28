@@ -33,9 +33,9 @@ private:
     static const unsigned RETRANSMIT_MAX = 100;
 
     //wartości do pamiętania
-    int my_nr_global; //numer wczytanego datagramu
-    int server_nr_global; //number wczytanego datagramu serwera
-    int win_global; //liczba wolnych bajtów w kolejce
+    int my_nr_global = 0; //numer wczytanego datagramu
+    int server_nr_global = 0; //number wczytanego datagramu serwera
+    int win_global = 0; //liczba wolnych bajtów w kolejce
 
     std::string last_sended_msg;
     int data_counter = 0; //pomocnicza zmienna do sprawdzania, czy nie otzymalismy komunikatow data bez wczesniejszego ack

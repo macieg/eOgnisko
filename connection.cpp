@@ -67,8 +67,8 @@ int connection::get_max_bytes_int_fifo()
 void connection::append(const char* data, int header_size, int data_size)
 {
     memcpy(fifo + current_bytes_in_fifo, data + header_size, data_size);
-    if (data_size < 0) //TODO do wywalenia!
-        throw 1;
+    //if (data_size < 0)
+      //  throw 1;
     current_bytes_in_fifo += data_size;
     min_bytes_in_fifo = std::min(min_bytes_in_fifo, current_bytes_in_fifo);
     max_bytes_in_fifo = std::max(max_bytes_in_fifo, current_bytes_in_fifo);
