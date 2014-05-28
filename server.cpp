@@ -177,7 +177,7 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
         for (auto& pair : connections_map_tcp)
         {
             asio::async_write(pair.second->get_tcp_socket(),
-                    asio::buffer(std::move(message.str())),
+                    asio::buffer(message.str()),
                     [this](boost::system::error_code err, std::size_t bt) {
                     }
             );
@@ -225,7 +225,7 @@ void server::send_ack_udp(int client_id, int nr, int free_bytes_in_fifo)
     ack_message.append(std::to_string(free_bytes_in_fifo));
     ack_message.append("\n");
 
-    sock_udp.async_send_to(asio::buffer(std::move(ack_message)), conn->get_udp_endpoint(),
+    sock_udp.async_send_to(asio::buffer(ack_message), conn->get_udp_endpoint(),
             [this](boost::system::error_code err, std::size_t bt) {
             });
 }
