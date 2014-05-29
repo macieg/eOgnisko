@@ -1,6 +1,7 @@
 #include <boost/bind.hpp>
 #include "client.h"
 #include "server.h"
+//#define DEBUG
 
 void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
 {
@@ -11,7 +12,6 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
         ss << &stream_buffer_tcp;
         std::string message = ss.str();
 
-        //        std::cerr << "[Info] " << ss.str() << std::endl;
         int id;
         if (client_parser.matches_client_id(message, id)) //jezeli otrzymalem swoj id, to odsylam go po udp jako potwierdzenie
         {
@@ -19,7 +19,9 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
                     [this](boost::system::error_code ec, std::size_t bt) {
                         if (!ec)
                         {
+                            #ifdef DEBUG
                             std::cerr << "[Info] ClientId successfully sended\n";
+                            #endif
                             udp_listening(); //zaczynam czekać na udp od serwera
                             run_keepalive_timer(); //i ustawiam timer do KEEPALIVE
                         }
@@ -79,7 +81,9 @@ void client::send_upload_message(std::size_t bytes_read)
                 [this](boost::system::error_code ec, std::size_t bt) {
                     if (!ec)
                     {
+                        #ifdef DEBUG
                         std::cerr << "[Info] Upload message successfully sended with bt - (" << bt << ")\n";
+                        #endif
                     }
                     else
                         std::cerr << "[Error] While sending upload message ec - '" << ec.message() << "', bt - " << bt << std::endl;
@@ -90,8 +94,10 @@ void client::send_upload_message(std::size_t bytes_read)
 
 void client::resolve_data_message(int nr, int ack, int win, int header_size, int bytes_transferred)
 {
+    #ifdef DEBUG
     std::cerr << "[Info] Received DATA nr(" << nr << ") ack(" << ack << ")win (" << win << ")" << std::endl;
     std::cerr << "[Info] Additional info - server nr global - " << server_nr_global << std::endl;
+    #endif
 
     int nr_expected = server_nr_global + 1;
     if (nr_expected <= nr) //jeżeli otrzymam datagram nie mniejszy niz oczekiwany to moge kontynuować
@@ -147,8 +153,9 @@ void client::resolve_data_message(int nr, int ack, int win, int header_size, int
                         [this, win] (const boost::system::error_code& ec, std::size_t bt) {
                             if (!ec || ec.value() == EOF_ERR_NO)
                             {
-                                //                    std::cerr << this->stdin_buf.c_array() << std::endl;
-                                if (bt) std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                                #ifdef DEBUG
+                                std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                                #endif
                                 send_upload_message(bt);
                             }
                             else
@@ -163,7 +170,10 @@ void client::resolve_data_message(int nr, int ack, int win, int header_size, int
 
 void client::resolve_ack_message(int ack, int win)
 {
-    if (win) std::cerr << "[Info] received ACK ack(" << ack << ") win(" << win << ")" << std::endl;
+    #ifdef DEBUG
+    std::cerr << "[Info] received ACK ack(" << ack << ") win(" << win << ")" << std::endl;
+    #endif
+
     win_global = win;
 
 
@@ -177,8 +187,9 @@ void client::resolve_ack_message(int ack, int win)
                     [this, win] (const boost::system::error_code& ec, std::size_t bt) {
                         if (!ec || ec.value() == EOF_ERR_NO)
                         {
-                            //                    std::cerr << this->stdin_buf.c_array() << std::endl;
-                            if (bt) std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                            #ifdef DEBUG
+                            std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                            #endif
                             send_upload_message(bt);
                         }
                         else
@@ -197,7 +208,9 @@ void client::udp_listening()
                 {
                     if (this->ep_udp == this->server_udp_endpoint) //czy na pewno dostaje udp od dobrego serwera
                     {
-                        //                        std::cerr << "[Info] Received datagram from server - (" << bt << ") bytes" << std::endl;
+                        #ifdef DEBUG
+                        std::cerr << "[Info] Received datagram from server - (" << bt << ") bytes" << std::endl;
+                        #endif
                         update_last_server_msg();
 
                         int nr, ack, win, begin_point;
@@ -268,9 +281,7 @@ void client::update_last_server_msg()
 
 void client::setup_networking()
 {
-    //    std::cerr << "[Info] Setup networking" << std::endl;
     my_nr_global = 0; //ustawienia nie sieciowe co prawda, ale tez potrzebne   
-    //    ack_global = 0;
     win_global = 0;
 
     asio::ip::tcp::resolver::query query_tcp(server, port);
@@ -298,7 +309,6 @@ client_parser()
 
 void client::setup(int retransmit_limit, std::string port, std::string server)
 {
-    //    std::cerr << "[Info] Setup" << std::endl;
     this->retransmit_limit = retransmit_limit;
     this->port = std::move(port);
     this->server = std::move(server);

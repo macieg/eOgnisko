@@ -1,6 +1,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include "client.h"
+#define LOG
 
 namespace po = boost::program_options;
 
@@ -57,7 +58,9 @@ int main(int argc, char** argv)
         }
         catch (std::exception& ex)
         {
-            std::cerr << "[Error] Exception - " <<  ex.what() << std::endl;
+            #ifdef LOG
+            std::cerr << "[Error] Exception - " << ex.what() << std::endl;
+            #endif 
         }
         sleep(1);
     }
