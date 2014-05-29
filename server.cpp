@@ -167,9 +167,12 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
             {
                 std::cerr << "[Info] User '" << tcp_iter->first << "' left" << std::endl;
                 int conn = (*udp_iter).second->get_client_id();
+                auto endp = (*udp_iter).second->get_udp_endpoint();
 
-                connections_map_udp.erase(udp_iter);
-                connections_map_tcp.erase(conn);
+                if (connections_map_udp.count(endp))
+                    connections_map_udp.erase(endp);
+                if (connections_map_tcp.count(conn))
+                    connections_map_tcp.erase(conn);
             }
             udp_iter++;
         }
@@ -303,9 +306,9 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
         if (connections_map_udp.count(ep_udp))
         {
             client_id = connections_map_udp[ep_udp]->get_client_id();
-            
+
             std::cerr << "[Info] Received udp message from '" << client_id << std::endl;
-            
+
             if (udp_parser.matches_keepalive(s))
                 resolve_keepalive_udp(client_id);
 
