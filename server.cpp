@@ -387,11 +387,11 @@ void server::network_setup()
 }
 
 server::server(asio::io_service& io_service) :
-endpoint_tcp(asio::ip::tcp::v4(), server_attributes::port),
+endpoint_tcp(asio::ip::tcp::v6(), server_attributes::port),
 acceptor_tcp(io_service, endpoint_tcp),
 sock_tcp(io_service),
 timer_tcp(io_service),
-endpoint_udp(asio::ip::udp::v4(), server_attributes::port),
+endpoint_udp(asio::ip::udp::v6(), server_attributes::port),
 sock_udp(io_service, endpoint_udp),
 timer_mixer(io_service),
 mixer_output(MIXER_OUTPUT_BUFFER_SIZE),

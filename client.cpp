@@ -206,6 +206,11 @@ void client::udp_listening()
             [this](const boost::system::error_code& ec, std::size_t bt) {
                 if (!ec)
                 {
+                    if (!was_first_udp)
+                    {
+                        was_first_udp = true;
+                        server_udp_endpoint = this->ep_udp;
+                    }
                     if (this->ep_udp == this->server_udp_endpoint) //czy na pewno dostaje udp od dobrego serwera
                     {
                         #ifdef DEBUG
@@ -284,11 +289,14 @@ void client::setup_networking()
     my_nr_global = 0; //ustawienia nie sieciowe co prawda, ale tez potrzebne   
     win_global = 0;
 
-    asio::ip::tcp::resolver::query query_tcp(server, port);
+    asio::ip::tcp::resolver::query query_tcp(server, port,
+            asio::ip::resolver_query_base::flags());
     asio::ip::tcp::resolver::iterator it_tcp = resolver_tcp.resolve(query_tcp);
     sock_tcp.async_connect(*it_tcp, boost::bind(&client::connect_tcp_handler, this, asio::placeholders::error));
 
-    asio::ip::udp::resolver::query query_udp(server, port);
+    asio::ip::udp::resolver::query query_udp(server,
+            boost::lexical_cast<std::string>(port),
+            asio::ip::resolver_query_base::flags());
     asio::ip::udp::resolver::iterator it_udp = resolver_udp.resolve(query_udp);
     server_udp_endpoint = *it_udp;
 }
@@ -299,7 +307,7 @@ resolver_tcp(io_service),
 sock_tcp(io_service),
 connect_timer(io_service),
 resolver_udp(io_service),
-sock_udp(io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0)),
+sock_udp(io_service, asio::ip::udp::endpoint(asio::ip::udp::v6(), 0)),
 keepalive_timer(io_service),
 std_input(io_service, ::dup(STDIN_FILENO)),
 std_output(io_service, ::dup(STDOUT_FILENO)),
