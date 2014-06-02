@@ -41,6 +41,8 @@ private:
     int data_counter = 0; //pomocnicza zmienna do sprawdzania, czy nie otzymalismy komunikatow data bez wczesniejszego ack
     
     bool was_first_udp = false; //informacja o tym, czy otrzymalismy juz pierwszy datagram udp
+    
+    bool is_reading = false; //flaga mówiąca o tym, czy zlecono asynchronicznie czytanie wejścia
 
 
     /////////////////////////////////////////////////////////////////
@@ -156,7 +158,7 @@ public:
     class connection_exception : public std::exception {
 
         const char* what() const noexcept {
-            return "[Error] Connection failed! Trying to reconnect...";
+            return "Connection failed! Trying to reconnect...";
         }
     };
 };

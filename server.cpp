@@ -10,12 +10,15 @@ void server::accept_handler(const boost::system::error_code &ec)
 {
     if (!ec)
     {
+        sock_tcp.set_option((asio::ip::tcp::no_delay(true)));
         std::cerr << "[Info] New user - '" << sock_tcp.remote_endpoint() << "', id - " << id_sequence << std::endl;
 
         boost::shared_ptr<connection> conn(new connection(id_sequence, std::move(sock_tcp)));
+        
         #ifdef DEBUG
         std::cerr << "[Info] New user attrs - '" << conn.get()->get_current_bytes_in_fifo() << "' - " << id_sequence << std::endl;
         #endif
+        
         connections_map_tcp.emplace(id_sequence, conn);
         asio::async_write(conn->get_tcp_socket(),
                 asio::buffer(create_accept_response(id_sequence)),
@@ -25,10 +28,8 @@ void server::accept_handler(const boost::system::error_code &ec)
         id_sequence++;
     }
     else
-    {
         std::cerr << "[Error] Accept handler failed '" << ec.message() << "'" << std::endl;
-    }
-
+    
     acceptor_tcp.async_accept(
             sock_tcp,
             boost::bind(&server::accept_handler, this, asio::placeholders::error)
@@ -86,6 +87,7 @@ size_t server::create_data()
 
         mixer_output_size = mixer_output.size();
         mixer(mixer_inputs.data(), mixer_inputs.size(), mixer_output.data(), &mixer_output_size, server_attributes::tx_interval);
+        
         #ifdef DEBUG
         std::cerr << "[Info] Mixer - mixed!" << std::endl;
         #endif
@@ -128,6 +130,11 @@ void server::mixer_timer_handler(const boost::system::error_code &ec)
         int left_in_fifo = server_attributes::fifo_size - iter.second->get_current_bytes_in_fifo();
         char* msg = new char[mixed_data_size + 100];
         sprintf(msg, "DATA %d %d %d\n", nr_mixer_global, iter.second->get_datagram_number(), left_in_fifo);
+        
+        #ifdef DEBUG
+        std::cerr << "[Info] sending - " << msg;
+        #endif
+        
         size_t header_size = strlen(msg);
         memmove(msg + header_size, mixer_output.data(), mixed_data_size);
 
@@ -157,7 +164,7 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
                 tcp_iter->second->clear_history(); //"zapominam" o min/max kolejki z poprzednich raportów
 
                 #ifdef DEBUG
-                std::cerr << tcp_iter->second->get_tcp_socket().remote_endpoint() << "\n";
+                std::cerr << "[Info] Iterating over tcp map" << tcp_iter->second->get_tcp_socket().remote_endpoint() << "\n";
                 #endif
 
                 tcp_iter++;
@@ -176,7 +183,6 @@ void server::tcp_timer_handler(const boost::system::error_code& error)
         while (udp_iter != std::end(connections_map_udp)) //jadę sobie po wszystkich klientach udp
         {
             int client_id = (*udp_iter).second->get_client_id();
-            //            std::cerr << "[Info] USER: " << client_id << ", TIME: " << (*udp_iter).second->get_time_from_last_udp() << "\n";
 
             if (connections_map_tcp.count(client_id) == 0) //jezeli jakiegoś nie ma w mapie tcp (zostal wyrzucony), to tu tez go wyrzucam
                 connections_map_udp.erase(udp_iter);
@@ -220,7 +226,7 @@ void server::mixer_timer_setup()
 
 void server::resolve_client_id_udp(int client_id)
 {
-    if (connections_map_udp.count(ep_udp) == 0) //Jeżeli nie ma już takiego klienta w mapie to go dodaje
+    if (connections_map_udp.count(ep_udp) == 0) //Jeżeli nie ma jeszcze takiego klienta w mapie to go dodaje
     {
         auto conn = connections_map_tcp[client_id];
         conn->set_udp_endpoint(ep_udp);
@@ -259,7 +265,7 @@ void server::resolve_upload_udp(int client_id, unsigned nr, int bytes_transferre
     std::cerr << "[Info] Uploaded from clientId(" << client_id << "), NR(" << nr << ") bytes(" << bytes_transferred << ")" << std::endl;
     #endif
 
-    auto& conn = connections_map_tcp[client_id];
+    auto& conn = connections_map_tcp.at(client_id);
 
     if (nr == conn->get_datagram_number()) //jezeli otrzymany numer nie jest mniejszy od aktualnego
     {
@@ -270,19 +276,16 @@ void server::resolve_upload_udp(int client_id, unsigned nr, int bytes_transferre
         int data_size = bytes_transferred - header_size;
         if (conn->left_bytes_in_fifo() - data_size >= 0)
         {
-            #ifdef DEBUG
-            std::cerr << "[Info] conn->left_bytes_in_fifo() - data_size >= 0" << std::endl;
-            #endif
-
             conn->append(udp_buf.data(), header_size, data_size);
-
-            #ifdef DEBUG
-            std::cerr << "[Info] conn->append(udp_buf.data(), header_size, data_size);" << std::endl;
-            #endif
             send_ack_udp(client_id, nr + 1, conn->left_bytes_in_fifo());
         }
         else
         {
+            #ifdef DEBUG
+            std::cerr << "[Info] Client sent too much data(" << client_id << "), leftinfofo("
+                    << conn->get_datagram_number() << ") data_size(" << data_size << ")" << std::endl;
+            #endif
+            
             auto endp = conn->get_udp_endpoint();
             connections_map_udp.erase(endp);
             connections_map_tcp.erase(client_id);
@@ -344,24 +347,30 @@ void server::udp_receive_handler(const boost::system::error_code& error, std::si
         {
             client_id = connections_map_udp[ep_udp]->get_client_id();
 
-            #ifdef DEBUG
-            std::cerr << "[Info] Received udp message from '" << client_id << std::endl;
-            #endif
+            if (connections_map_tcp.count(client_id))
+            {
+                #ifdef DEBUG
+                std::cerr << "[Info] Received udp message from '" << client_id << std::endl;
+                #endif
 
-            if (udp_parser.matches_keepalive(s))
-                resolve_keepalive_udp(client_id);
+                if (udp_parser.matches_keepalive(s))
+                    resolve_keepalive_udp(client_id);
 
-            else if (udp_parser.matches_upload(s, nr, bt, begin_point))
-                resolve_upload_udp(client_id, nr, bt, begin_point);
+                else if (udp_parser.matches_upload(s, nr, bt, begin_point))
+                    resolve_upload_udp(client_id, nr, bt, begin_point);
 
-            else if (udp_parser.matches_retransmit(s, nr))
-                resolve_retransmit_udp(client_id, nr);
+                else if (udp_parser.matches_retransmit(s, nr))
+                    resolve_retransmit_udp(client_id, nr);
 
-            connections_map_tcp[client_id]->update_udp_time();
+                if (connections_map_tcp.count(client_id))
+                {
+                    connections_map_tcp[client_id]->update_udp_time();
 
-            #ifdef DEBUG
-            std::cerr << "[Info] Updated udp time for '" << client_id << std::endl;
-            #endif
+                    #ifdef DEBUG
+                    std::cerr << "[Info] Updated udp time for '" << client_id << std::endl;
+                    #endif
+                }
+            }
         }
 
         udp_buf.assign(0); //czyścimy bufor

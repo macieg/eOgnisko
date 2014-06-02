@@ -22,6 +22,7 @@ void client::receive_tcp_handler(const boost::system::error_code &ec, std::size_
                             #ifdef DEBUG
                             std::cerr << "[Info] ClientId successfully sended\n";
                             #endif
+
                             udp_listening(); //zaczynam czekać na udp od serwera
                             run_keepalive_timer(); //i ustawiam timer do KEEPALIVE
                         }
@@ -51,6 +52,7 @@ void client::connect_tcp_handler(const boost::system::error_code &ec)
     if (!ec)
     {
         std::cerr << "[Info] Connect success\n";
+        sock_tcp.set_option((asio::ip::tcp::no_delay(true)));
         asio::async_read_until(sock_tcp,
                 stream_buffer_tcp, NEWLINE_SIGN,
                 boost::bind(&client::receive_tcp_handler, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
@@ -72,8 +74,6 @@ void client::send_upload_message(std::size_t bytes_read)
         upload_msg.append(std::to_string(my_nr_global));
         upload_msg.append("\n");
         upload_msg.append(stdin_buf.c_array(), bytes_read);
-
-        //        std::cerr << "[Info] (" << upload_msg.size() << ")" << std::endl;
 
         last_sended_msg = upload_msg;
         sock_udp.async_send_to(asio::buffer(upload_msg),
@@ -100,7 +100,7 @@ void client::resolve_data_message(int nr, int ack, int win, int header_size, int
     #endif
 
     int nr_expected = server_nr_global + 1;
-    if (nr_expected <= nr) //jeżeli otrzymam datagram nie mniejszy niz oczekiwany to moge kontynuować
+    if (nr_expected <= nr) //jeżeli otrzymany datagram nie mniejszy niz oczekiwany to moge kontynuować
     {
         if (nr_expected >= nr - retransmit_limit && nr_expected != nr)
         {
@@ -114,16 +114,18 @@ void client::resolve_data_message(int nr, int ack, int win, int header_size, int
                         [this, nr_expected](boost::system::error_code ec, std::size_t bt) {
                             if (ec)
                                 std::cerr << "[Error] While sending upload message ec - '" << ec.message() << "', bt - " << bt << std::endl;
-                            //                            else
-                            //                                std::cerr << "[Info] Successfully sent retransmit request with expected_nr = " << nr_expected << std::endl;
-
+                            #ifdef DEBUG
+                            else
+                                std::cerr << "[Info] Successfully sent retransmit request with expected_nr = " << nr_expected << std::endl;
+                            #endif
                         });
             }
         }
         else
         {
+
+
             ++data_counter;
-            //                std::cerr << "[Info] DATA_COUNTER " << data_counter << std::endl;
             if (data_counter > 1)
             {
                 sock_udp.async_send_to(asio::buffer(last_sended_msg),
@@ -131,38 +133,48 @@ void client::resolve_data_message(int nr, int ack, int win, int header_size, int
                         [this](boost::system::error_code ec, std::size_t bt) {
                             if (ec)
                                 std::cerr << "[Error] While resending message '" << ec.message() << "', bt - " << bt << std::endl;
-                            //                            else
-                            //                                std::cerr << "[Info] Successfully resent packet" << std::endl;
+                            #ifdef DEBUG
+                            else
+                                std::cerr << "[Info] Successfully resent packet" << std::endl;
+                            #endif
 
                         });
             }
 
             server_nr_global = nr;
             win_global = win;
-            //wypisyje na wyjście to co odebrałem
+
+            if (ack == my_nr_global)
+            {
+                #ifdef DEBUG
+                std::cerr << "[Info] Before read from input, win = " << win_global << std::endl;
+                #endif
+                
+                if (!is_reading)
+                {
+                    is_reading = true;
+                    asio::async_read(std_input, asio::buffer(stdin_buf, std::min(win_global, 1 << 16)),
+                            [this, win] (const boost::system::error_code& ec, std::size_t bt) {
+                                if (!ec || ec.value() == EOF_ERR_NO)
+                                {
+                                    #ifdef DEBUG
+                                    std::cerr << "[Info] Read (after data) from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                                    #endif
+                                    is_reading = false;
+                                    send_upload_message(bt);
+                                }
+                                else
+                                    std::cerr << "[Info] Problem with reading from stdin, ec = '" << ec.message() << "'" << std::endl;
+                            }
+                    );
+                }
+            }
 
             const char* data = udp_receive_buffer.data();
             int bytes_to_transfer = bytes_transferred - header_size;
 
-            //            std::cerr << "[Info] bytes to be written - " << bytes_to_transfer << std::endl;
             asio::write(std_output, asio::buffer(data + header_size, bytes_to_transfer));
-            if (ack == my_nr_global)
-            {
-                //czytam z wejścia pewną ilość danych odpowiadającą win
-                asio::async_read(std_input, asio::buffer(stdin_buf, std::min(win_global, 1 << 16)),
-                        [this, win] (const boost::system::error_code& ec, std::size_t bt) {
-                            if (!ec || ec.value() == EOF_ERR_NO)
-                            {
-                                #ifdef DEBUG
-                                std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
-                                #endif
-                                send_upload_message(bt);
-                            }
-                            else
-                                std::cerr << "[Info] Problem with reading from stdin, ec = '" << ec.message() << "'" << std::endl;
-                        }
-                );
-            }
+
             nr_max_seen = std::max(nr, nr_max_seen);
         }
     }
@@ -176,26 +188,31 @@ void client::resolve_ack_message(int ack, int win)
 
     win_global = win;
 
-
     data_counter = 0;
 
     if (win) //jezeli jest sens cokolwiek wysyłać
     {
         if (ack == my_nr_global)
         {
-            asio::async_read(std_input, asio::buffer(stdin_buf, win_global),
-                    [this, win] (const boost::system::error_code& ec, std::size_t bt) {
-                        if (!ec || ec.value() == EOF_ERR_NO)
-                        {
-                            #ifdef DEBUG
-                            std::cerr << "[Info] Read from input bt(" << bt << ") win(" << win << ")" << std::endl;
-                            #endif
-                            send_upload_message(bt);
+            if (!is_reading)
+            {
+                is_reading = true;
+                asio::async_read(std_input, asio::buffer(stdin_buf, win_global),
+                        [this, win] (const boost::system::error_code& ec, std::size_t bt) {
+                            if (!ec || ec.value() == EOF_ERR_NO)
+                            {
+                                #ifdef DEBUG
+                                std::cerr << "[Info] Read (after ack) from input bt(" << bt << ") win(" << win << ")" << std::endl;
+                                #endif
+                                
+                                is_reading = false;
+                                send_upload_message(bt);
+                            }
+                            else
+                                std::cerr << "[Info] Problem with reading from stdin, ec = '" << ec.message() << "'" << std::endl;
                         }
-                        else
-                            std::cerr << "[Info] Problem with reading from stdin, ec = '" << ec.message() << "'" << std::endl;
-                    }
-            );
+                );
+            }
         }
     }
 }
@@ -216,6 +233,7 @@ void client::udp_listening()
                         #ifdef DEBUG
                         std::cerr << "[Info] Received datagram from server - (" << bt << ") bytes" << std::endl;
                         #endif
+                        
                         update_last_server_msg();
 
                         int nr, ack, win, begin_point;
